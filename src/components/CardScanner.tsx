@@ -1,103 +1,229 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import type { BingoRound } from '../types';
-import { useStore, getRoundCards } from '../store';
-import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X } from 'lucide-react';
+import type { BingoRound, MasterCard } from '../types';
+import { useStore } from '../store';
+import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
+
+type ReviewCard = {
+  image?: string;
+  numbers: number[];
+  cardNumber: string;
+  name: string;
+  isDuplicate?: boolean;
+  duplicateOfId?: string;
+  originalError?: string;
+};
+
+const isValidNumber = (num: number, idx: number) => {
+  if (idx === 12) return true; // Center
+  if (!num || num === 0) return false;
+  const col = idx % 5;
+  if (col === 0 && (num < 1 || num > 15)) return false;
+  if (col === 1 && (num < 16 || num > 30)) return false;
+  if (col === 2 && (num < 31 || num > 45)) return false;
+  if (col === 3 && (num < 46 || num > 60)) return false;
+  if (col === 4 && (num < 61 || num > 75)) return false;
+  return true;
+};
 
 export function CardScanner({ round }: { round: BingoRound }) {
   const masterCards = useStore(state => state.masterCards);
   const addMasterCard = useStore(state => state.addMasterCard);
+  const updateMasterCard = useStore(state => state.updateMasterCard);
   
   const [mode, setMode] = useState<'IDLE' | 'CAMERA' | 'PROCESSING' | 'REVIEW'>('IDLE');
   const [error, setError] = useState<string | null>(null);
-  const [scannedNumbers, setScannedNumbers] = useState<number[]>(Array(25).fill(0));
-  const [cardName, setCardName] = useState(`${masterCards.length + 1}ª CARTELA`);
-  const [cardNumber, setCardNumber] = useState("");
+  
+  const [reviewQueue, setReviewQueue] = useState<ReviewCard[]>([]);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [duplicateAction, setDuplicateAction] = useState<'PROMPT' | 'IGNORE' | 'REPLACE' | 'DUPLICATE'>('PROMPT');
+  
   const webcamRef = useRef<Webcam>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processImages = async (base64Images: string[]) => {
+    setMode('PROCESSING');
+    setError(null);
+    setProgress({ current: 0, total: base64Images.length });
+    
+    const results: ReviewCard[] = [];
+    
+    for (let i = 0; i < base64Images.length; i++) {
+        const base64Image = base64Images[i];
+        setProgress({ current: i + 1, total: base64Images.length });
+        
+        try {
+          const mimeType = base64Image.split(';')[0].replace('data:', '');
+          const base64Data = base64Image.split(',')[1];
+          
+          const response = await fetch('/api/scan-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageParams: { inlineData: { data: base64Data, mimeType } }
+            })
+          });
+
+          if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
+
+          const data = await response.json();
+          
+          if (data.numbers && Array.isArray(data.numbers) && data.numbers.length === 25) {
+            results.push({
+                image: base64Image,
+                numbers: data.numbers,
+                cardNumber: data.cardNumber || "",
+                name: `${masterCards.length + results.length + 1}ª CARTELA`,
+            });
+          } else {
+            throw new Error("Formato inválido.");
+          }
+        } catch (err: any) {
+          results.push({
+            image: base64Image,
+            numbers: Array(25).fill(0),
+            cardNumber: "",
+            name: `${masterCards.length + results.length + 1}ª CARTELA`,
+            originalError: err.message || "Falha no OCR. Ajuste manualmente."
+          });
+        }
+    }
+    
+    setReviewQueue(results);
+    setMode('REVIEW');
+  };
 
   const capture = useCallback(() => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
-      processImage(imageSrc);
+      processImages([imageSrc]);
     } else {
-      setError("Não foi possível capturar a imagem da câmera.");
+      setError("Não foi possível capturar a imagem.");
     }
-  }, [webcamRef]);
+  }, [webcamRef, masterCards.length]);
 
-  const processImage = async (base64Image: string) => {
-    setMode('PROCESSING');
-    setError(null);
-    try {
-      const mimeType = base64Image.split(';')[0].replace('data:', '');
-      const base64Data = base64Image.split(',')[1];
-      
-      const response = await fetch('/api/scan-card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageParams: {
-            inlineData: { data: base64Data, mimeType },
-          }
-        })
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    
+    Promise.all(files.map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
       });
+    })).then(base64Images => {
+       processImages(base64Images);
+    });
+    
+    e.target.value = ''; // reset
+  };
 
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.statusText}`);
+  const currentReview = reviewQueue[0];
+  
+  // Check duplicates
+  useEffect(() => {
+      if (mode === 'REVIEW' && currentReview && duplicateAction === 'PROMPT') {
+          // check if duplicate
+          const isDuplicateNum = currentReview.cardNumber && masterCards.some(m => m.cardNumber === currentReview.cardNumber);
+          const isDuplicateContent = masterCards.some(m => JSON.stringify(m.numbers) === JSON.stringify(currentReview.numbers));
+          const existing = masterCards.find(m => m.cardNumber === currentReview.cardNumber || JSON.stringify(m.numbers) === JSON.stringify(currentReview.numbers));
+          
+          if ((isDuplicateNum || isDuplicateContent) && !currentReview.isDuplicate) {
+              setReviewQueue(q => [
+                  { ...currentReview, isDuplicate: true, duplicateOfId: existing?.id },
+                  ...q.slice(1)
+              ]);
+          }
       }
+  }, [mode, currentReview, masterCards, duplicateAction]);
 
-      const data = await response.json();
+  const nextCard = () => {
+     setReviewQueue(q => q.slice(1));
+     setDuplicateAction('PROMPT');
+     if (reviewQueue.length <= 1) {
+         setMode('IDLE');
+     }
+  };
+
+  const handleDuplicateAction = (action: 'IGNORE' | 'REPLACE' | 'DUPLICATE') => {
+      if (!currentReview) return;
       
-      if (data.numbers && Array.isArray(data.numbers) && data.numbers.length === 25) {
-        setScannedNumbers(data.numbers);
-        setCardNumber(data.cardNumber || "");
-        setMode('REVIEW');
-      } else {
-        throw new Error("Formato de resposta inválido.");
+      if (action === 'IGNORE') {
+          nextCard();
+      } else if (action === 'REPLACE' && currentReview.duplicateOfId) {
+          updateMasterCard(currentReview.duplicateOfId, {
+              numbers: currentReview.numbers,
+              cardNumber: currentReview.cardNumber,
+              name: currentReview.name
+          });
+          nextCard();
+      } else if (action === 'DUPLICATE') {
+          addMasterCard({
+             name: currentReview.name,
+             cardNumber: currentReview.cardNumber,
+             numbers: currentReview.numbers
+          });
+          nextCard();
       }
-    } catch (err: any) {
-      setError(err.message || 'Falha ao processar a imagem. O OCR requer que a imagem esteja nítida e seja de uma cartela de Bingo 75.');
-      setMode('IDLE');
-    }
   };
 
   const saveCard = () => {
+    if (currentReview.isDuplicate && duplicateAction === 'PROMPT') {
+        // user hasn't made a decision, should prompt
+        return;
+    }
     addMasterCard({
-      name: cardName,
-      cardNumber: cardNumber,
-      numbers: scannedNumbers
+      name: currentReview.name,
+      cardNumber: currentReview.cardNumber,
+      numbers: currentReview.numbers
     });
-    // Reset state for next card // Reset state for next card
-    setMode('IDLE');
-    setCardName(`${masterCards.length + 2}ª CARTELA`);
-    setCardNumber("");
-    setScannedNumbers(Array(25).fill(0));
+    nextCard();
   };
 
   const handleManualEntry = () => {
-    // Generate a blank grid for manual entry
     const blank = Array(25).fill(0);
-    // FREE SPACE
     blank[12] = 0; 
-    setScannedNumbers(blank);
+    setReviewQueue([{
+        numbers: blank,
+        cardNumber: "",
+        name: `${masterCards.length + 1}ª CARTELA`
+    }]);
     setMode('REVIEW');
+  };
+  
+  const updateCurrentReview = (updates: Partial<ReviewCard>) => {
+      setReviewQueue(q => [
+          { ...q[0], ...updates },
+          ...q.slice(1)
+      ]);
   };
 
   return (
-    <div className="max-w-3xl mx-auto bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+    <div className="max-w-4xl mx-auto bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
       <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
         <div>
            <h2 className="text-xl font-bold text-white flex items-center gap-2">
              <Camera className="text-emerald-500" />
-             Adicionar Cartela
+             Adicionar Cartelas
            </h2>
            <p className="text-sm text-slate-400 mt-1">
-             Fotografe a cartela física para leitura automática via OCR.
+             Fotografe ou importe imagens de cartelas para leitura automática.
            </p>
         </div>
       </div>
 
       <div className="p-6">
+        <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            accept="image/*" 
+            multiple 
+            className="hidden" 
+        />
+
         {error && (
           <div className="mb-6 p-4 bg-red-900/40 border border-red-500/50 rounded-lg flex items-start gap-3">
             <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={20} />
@@ -109,27 +235,33 @@ export function CardScanner({ round }: { round: BingoRound }) {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center py-12">
             <button 
               onClick={() => setMode('CAMERA')}
-              className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl w-full sm:w-64 tracking-wide transition-all"
+              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl w-full sm:w-48 tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Camera size={48} className="mb-4" />
-              <span className="font-semibold text-lg">Abrir Câmera</span>
-              <span className="text-xs text-emerald-500/70 mt-1">Recomendado</span>
+              <Camera size={40} className="mb-3" />
+              <span className="font-semibold text-lg text-center leading-tight">Câmera<br />Dispositivo</span>
+            </button>
+            
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-500/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-2xl w-full sm:w-48 tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ImagePlus size={40} className="mb-3" />
+              <span className="font-semibold text-lg text-center leading-tight">Importar<br />Imagens</span>
             </button>
 
             <button 
               onClick={handleManualEntry}
-              className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-500 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl w-full sm:w-64 tracking-wide transition-all"
+              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-500 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl w-full sm:w-48 tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Edit3 size={48} className="mb-4" />
-              <span className="font-semibold text-lg">Digitar Manualmente</span>
+              <Edit3 size={40} className="mb-3" />
+              <span className="font-semibold text-lg text-center leading-tight">Digitar<br />Manual</span>
             </button>
           </div>
         )}
 
         {mode === 'CAMERA' && (
           <div className="flex flex-col items-center">
-            <div className="relative rounded-2xl overflow-hidden bg-black mx-auto border-4 border-slate-700 w-full max-w-sm aspect-[4/5]">
-               {/* @ts-ignore webcam props issue */}
+            <div className="relative justify-center rounded-2xl overflow-hidden bg-black mx-auto border-4 border-slate-700 w-full max-w-sm aspect-[4/5] flex items-center">
                <Webcam
                 audio={false}
                 ref={webcamRef}
@@ -137,7 +269,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                 videoConstraints={{ facingMode: "environment" }}
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              <div className="absolute inset-0 pointer-events-none border-[2px] m-8 border-dashed border-white/50 rounded-lg"></div>
+              <div className="absolute inset-0 pointer-events-none border-[2px] m-8 border-dashed border-emerald-500/50 rounded-lg"></div>
             </div>
             
             <div className="mt-8 flex gap-4">
@@ -161,85 +293,148 @@ export function CardScanner({ round }: { round: BingoRound }) {
           <div className="py-24 flex flex-col items-center justify-center text-emerald-400">
             <RotateCcw size={48} className="animate-spin mb-6" />
             <p className="text-lg font-bold">Analisando imagem com IA...</p>
-            <p className="text-sm text-slate-400 mt-2">Extraindo números da cartela</p>
+            {progress.total >= 1 && (
+                <p className="text-sm text-slate-400 mt-2 font-medium bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700">Extraindo {progress.current} de {progress.total} {progress.total === 1 ? 'cartela' : 'cartelas'}</p>
+            )}
           </div>
         )}
 
-        {mode === 'REVIEW' && (
-          <div className="max-w-md mx-auto">
-            <div className="mb-6 flex gap-4">
-               <div className="flex-1">
-                 <label className="block text-sm font-medium text-slate-300 mb-2">Identificação</label>
-                 <input 
-                   type="text" 
-                   value={cardName}
-                   onChange={(e) => setCardName(e.target.value)}
-                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                   placeholder="Ex: 1ª CARTELA"
-                 />
-               </div>
-               <div className="w-1/3">
-                 <label className="block text-sm font-medium text-slate-300 mb-2">Nº (Serial)</label>
-                 <input 
-                   type="text" 
-                   value={cardNumber}
-                   onChange={(e) => setCardNumber(e.target.value)}
-                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                   placeholder="Ex: 123"
-                 />
-               </div>
+        {mode === 'REVIEW' && currentReview && (
+          <div className="max-w-4xl mx-auto flex flex-col lg:flex-row gap-6">
+            
+            {/* Left: Original Image Preview */}
+            <div className="flex-1 flex flex-col bg-black/40 rounded-xl border border-slate-700 p-2 overflow-hidden h-[400px] lg:h-[600px]">
+                {currentReview.image ? (
+                    <img src={currentReview.image} alt="Original" className="w-full h-full object-contain" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-500 flex-col">
+                        <Edit3 size={48} className="mb-4 opacity-20" />
+                        Sem foto
+                    </div>
+                )}
+            </div>
+            
+            {/* Right: Validation & Editing */}
+            <div className="w-full lg:w-[400px] flex flex-col">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-2">
+                    <h3 className="text-white font-bold text-lg">Prévia (Restam {reviewQueue.length})</h3>
+                </div>
+
+                {currentReview.originalError && (
+                  <div className="mb-4 p-3 bg-red-900/40 border border-red-500/50 rounded-lg flex items-start gap-3 flex-shrink-0">
+                    <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={16} />
+                    <div className="text-xs text-red-200 uppercase tracking-widest leading-relaxed"><span className="font-bold">Aviso OCR:</span> {currentReview.originalError}</div>
+                  </div>
+                )}
+                
+                {currentReview.isDuplicate && duplicateAction === 'PROMPT' && (
+                  <div className="mb-4 p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg flex flex-col gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 text-orange-400 font-bold">
+                        <AlertTriangle size={18} /> Cartela Já Cadastrada
+                    </div>
+                    <p className="text-sm text-orange-200">Uma cartela idêntica já existe no sistema.</p>
+                    <div className="flex flex-col gap-2">
+                        <button onClick={() => handleDuplicateAction('IGNORE')} className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded font-medium flex justify-center items-center gap-2"><SkipForward size={16}/> Ignorar Atual</button>
+                        <button onClick={() => handleDuplicateAction('REPLACE')} className="py-2.5 bg-orange-800 hover:bg-orange-700 text-white rounded font-medium flex justify-center items-center gap-2"><Save size={16}/> Substituir Antiga</button>
+                        <button onClick={() => handleDuplicateAction('DUPLICATE')} className="py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded font-medium flex justify-center items-center gap-2 text-sm mt-1"><Copy size={16} /> Adicionar Nova Assim Mesmo</button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-4 flex gap-4 flex-shrink-0">
+                   <div className="flex-1">
+                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Nome</label>
+                     <input 
+                       type="text" 
+                       value={currentReview.name}
+                       onChange={(e) => updateCurrentReview({ name: e.target.value })}
+                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                     />
+                   </div>
+                   <div className="w-1/3">
+                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Serial</label>
+                     <input 
+                       type="text" 
+                       value={currentReview.cardNumber}
+                       onChange={(e) => updateCurrentReview({ cardNumber: e.target.value })}
+                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                     />
+                   </div>
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 mb-6 flex-shrink-0">
+                  <div className="text-center mb-4 text-slate-400 text-xs uppercase tracking-wider font-bold items-center justify-center">
+                    Células vermelhas indicam possível erro
+                  </div>
+                  
+                  <div className="grid grid-cols-5 gap-2">
+                    {['B', 'I', 'N', 'G', 'O'].map((l, i) => (
+                      <div key={l} className={cn("text-center font-bold pb-2", i===0?'text-blue-400':i===1?'text-red-400':i===2?'text-yellow-400':i===3?'text-emerald-400':'text-purple-400')}>{l}</div>
+                    ))}
+                    {currentReview.numbers.map((num, idx) => {
+                      const valid = isValidNumber(num, idx);
+                      return (
+                      <input
+                        key={idx}
+                        type="number"
+                        min="0"
+                        max="75"
+                        className={cn(
+                          "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors",
+                          idx === 12 
+                            ? "bg-slate-700 text-slate-400 text-xs" 
+                            : valid
+                               ? "bg-slate-800 text-white border border-slate-600 hover:bg-slate-700"
+                               : "bg-red-900/50 text-red-100 border border-red-500 focus:bg-red-900 focus:ring-red-400"
+                        )}
+                        value={num === 0 ? '' : num}
+                        onChange={(e) => {
+                          const newNums = [...currentReview.numbers];
+                          const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                          newNums[idx] = val;
+                          updateCurrentReview({ numbers: newNums });
+                        }}
+                        placeholder={idx === 12 ? '★' : ''}
+                      />
+                    )})}
+                  </div>
+                </div>
+
+                {!currentReview.isDuplicate && (
+                    <div className="flex flex-col gap-3 mt-auto">
+                      <div className="flex gap-4">
+                        <button 
+                          onClick={() => {
+                              if (confirm("Tem certeza que deseja descartar esta cartela?")) {
+                                  nextCard();
+                              }
+                          }}
+                          className="py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-sm tracking-wider uppercase transition-colors"
+                        >
+                          Descartar
+                        </button>
+                        <button 
+                          onClick={saveCard}
+                          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20"
+                        >
+                          <CheckCircle2 size={20} /> Confirmar
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => {
+                            if (confirm("Tem certeza que deseja cancelar toda a importação e voltar?")) {
+                                setReviewQueue([]);
+                                setMode('IDLE');
+                            }
+                        }}
+                        className="py-2.5 bg-red-950/30 hover:bg-red-900/50 text-red-300 border border-red-900/50 rounded-lg font-bold text-xs tracking-wider uppercase transition-colors flex items-center justify-center gap-2"
+                      >
+                        <X size={16} /> Cancelar Importação
+                      </button>
+                    </div>
+                )}
             </div>
 
-            <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 mb-8">
-              <div className="text-center mb-4 text-slate-400 text-sm flex items-center justify-center gap-2">
-                <AlertTriangle size={16} className="text-yellow-500" /> Confira e corrija caso haja erro no OCR
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {['B', 'I', 'N', 'G', 'O'].map((l, i) => (
-                  <div key={l} className={cn("text-center font-bold pb-2", i===0?'text-blue-400':i===1?'text-red-400':i===2?'text-yellow-400':i===3?'text-emerald-400':'text-purple-400')}>{l}</div>
-                ))}
-                {scannedNumbers.map((num, idx) => (
-                  <input
-                    key={idx}
-                    type="number"
-                    min="0"
-                    max="75"
-                    className={cn(
-                      "w-full aspect-square text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-emerald-500",
-                      (idx === 12 || num === 0) 
-                        ? "bg-slate-700 text-slate-400 text-xs" 
-                        : "bg-slate-800 text-white border border-slate-600"
-                    )}
-                    value={num === 0 ? '' : num}
-                    onChange={(e) => {
-                      const newNums = [...scannedNumbers];
-                      if (e.target.value === '') {
-                        newNums[idx] = 0;
-                      } else {
-                        newNums[idx] = parseInt(e.target.value) || 0;
-                      }
-                      setScannedNumbers(newNums);
-                    }}
-                    placeholder={idx === 12 ? '★' : ''}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setMode('IDLE')}
-                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium"
-              >
-                Descartar
-              </button>
-              <button 
-                onClick={saveCard}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={20} /> Salvar Cartela
-              </button>
-            </div>
           </div>
         )}
       </div>

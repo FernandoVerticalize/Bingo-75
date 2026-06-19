@@ -17,68 +17,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
   const updateCard = useStore(state => state.updateMasterCard);
   const deleteCard = useStore(state => state.deleteMasterCard);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [layoutScale, setLayoutScale] = useState({ cols: 1, cardWidth: 200, scale: 1 });
-
-  // Do not pad to 12. Only show actual cards per prompt:
-  // "Independentemente de existirem 5... o sistema reorganizar..."
   const displayCards = cards;
-  const numCards = Math.max(1, displayCards.length);
-
-  useEffect(() => {
-    const recalculateLayout = () => {
-      if (!containerRef.current) return;
-      const { clientWidth, clientHeight } = containerRef.current;
-      if (clientWidth === 0 || clientHeight === 0) return;
-
-      const padding = 8;
-      const gap = 4;
-      const availableW = clientWidth - padding * 2;
-      const availableH = clientHeight - padding * 2;
-
-      let bestW = 0;
-      let bestCols = 1;
-
-      // Cards have fixed extra height (~76px total from headers/footers + 2px borders) + width (square grid)
-      // Height of card = width + 76
-      // Try cols from 1 to numCards
-      for (let cols = 1; cols <= numCards; cols++) {
-        const rows = Math.ceil(numCards / cols);
-        
-        let wFromWidth = (availableW - (cols - 1) * gap) / cols;
-        let hFromHeight = (availableH - (rows - 1) * gap) / rows;
-        // Card base size is 200 width and approximately 276 height (200 + 76)
-        let wFromHeight = hFromHeight * (200 / 276);
-
-        let w = Math.min(wFromWidth, wFromHeight);
-
-        // Limit minimum width so text remains readable; if too small, fallback to scrolling vertically
-        if (w < 80) w = wFromWidth;
-
-        if (w > bestW) {
-           bestW = w;
-           bestCols = cols;
-        }
-      }
-
-      // Limit maximum width so one card doesn't stretch huge across the screen
-      const maxW = Math.min(bestW, 300);
-
-      setLayoutScale({ cols: bestCols, cardWidth: maxW, scale: maxW / 200 });
-    };
-
-    const resizeObserver = new ResizeObserver(() => recalculateLayout());
-    if (containerRef.current) resizeObserver.observe(containerRef.current);
-    recalculateLayout();
-
-    window.addEventListener('resize', recalculateLayout);
-    window.addEventListener('orientationchange', recalculateLayout);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', recalculateLayout);
-      window.removeEventListener('orientationchange', recalculateLayout);
-    };
-  }, [numCards]);
 
   const selectedCard = selectedCardId ? cards.find(c => c.id === selectedCardId) : null;
 
@@ -101,27 +40,16 @@ export function CardsGrid({ round }: { round: BingoRound }) {
 
   return (
     <>
-      <div 
-        ref={containerRef}
-        className="w-full h-full overflow-y-auto flex flex-col items-center p-2"
-      >
-        <div 
-          className="grid gap-[4px] w-full"
-          style={{ 
-            gridTemplateColumns: `repeat(${layoutScale.cols}, minmax(0, 1fr))`,
-            maxWidth: layoutScale.cols * layoutScale.cardWidth + (layoutScale.cols - 1) * 4 // gap is 4px
-          }}
-        >
+      <div className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col p-1 sm:p-2 bg-[#0b0c10]">
+        <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 w-full content-start rounded-xl mx-auto">
           {displayCards.length > 0 ? displayCards.map((card, i) => (
-            <div key={card.id}>
-              <CardThumbnail 
-                card={card} 
-                index={i + 1}
-                drawnNumbers={round.drawnNumbers} 
-                scale={layoutScale.scale}
-                onClick={() => setSelectedCardId(card.id)}
-              />
-            </div>
+            <CardThumbnail 
+              key={card.id}
+              card={card} 
+              index={i + 1}
+              drawnNumbers={round.drawnNumbers} 
+              onClick={() => setSelectedCardId(card.id)}
+            />
           )) : (
             <div className="col-span-full flex flex-col items-center justify-center pt-20 text-slate-500">
                <p>Nenhuma cartela cadastrada.</p>
@@ -275,25 +203,24 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { card: Bi
   return (
     <div 
       onClick={isEmpty ? undefined : onClick}
-      style={{ zoom: scale ? scale : 1, width: 200 }}
       className={cn(
-        "rounded overflow-hidden border flex flex-col font-sans transition-all mx-auto",
+        "w-full rounded overflow-hidden border flex flex-col font-sans transition-all mx-auto bg-[#121826]",
         !isEmpty && "cursor-pointer hover:border-slate-500",
         card.isWinner ? "border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)] ring-2 ring-yellow-500" : "border-[#1e293b]"
       )}
     >
       {/* Header Blue */}
       <div className={cn(
-        "text-center text-[10px] sm:text-[11px] md:text-xs font-bold text-white truncate px-1 tracking-wide",
+        "text-center text-[10px] sm:text-[11px] lg:text-xs font-bold text-white truncate px-1 tracking-wide py-1",
         card.isWinner ? "bg-yellow-600" : "bg-[#1e40af]"
-      )} style={{ height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      )} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {displayName}
       </div>
 
       <BingoGrid card={card} drawnNumbers={drawnNumbers} />
       
       {/* Footer */}
-      <div className="bg-black text-[#ef4444] px-1 py-0 text-[10px] sm:text-[11px] font-bold flex justify-between items-center" style={{ height: '22px' }}>
+      <div className="bg-black text-[#ef4444] px-1 py-1 text-[9px] sm:text-[10px] lg:text-[11px] font-bold flex justify-between items-center">
         <div className="flex items-center gap-1">
           <span>Nº</span>
           {!isEmpty && (
@@ -324,10 +251,10 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
           <div 
             key={letter} 
             className={cn(
-              "flex items-center justify-center font-bold",
-               fullSize ? "text-xl pb-3 pt-2" : "text-[10px] sm:text-[11px]"
+              "flex items-center justify-center font-bold text-[9px] sm:text-[10px] lg:text-[11px]",
+               fullSize && "text-xl pb-3 pt-2"
             )}
-            style={{ height: fullSize ? 'auto' : '24px' }}
+            style={{ height: fullSize ? 'auto' : '20px' }}
           >
             {letter}
           </div>
@@ -346,7 +273,7 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
               key={idx}
               className={cn(
                 "w-full aspect-square flex items-center justify-center transition-colors overflow-hidden",
-                fullSize ? "text-xl font-bold" : "text-[10px] sm:text-[11px] lg:text-xs font-semibold leading-none",
+                fullSize ? "text-xl font-bold" : "text-[9px] sm:text-[10px] md:text-[11px] lg:text-[12px] font-semibold leading-none",
                 isMarked && !isEmpty ? "bg-emerald-600 text-white shadow-inner" : "bg-[#182132] text-slate-300",
                 isEmpty && "bg-[#182132]", // Just empty dark cell
                 isFree && !isEmpty && "bg-slate-700 text-slate-400"

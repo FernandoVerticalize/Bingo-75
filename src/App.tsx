@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
 import { 
-  Menu, 
   Settings, 
   Camera, 
   BarChart2, 
@@ -26,7 +25,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'BOARD' | 'SCANNER' | 'STATS' | 'ADMIN'>('BOARD');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCallerBoardOpen, setIsCallerBoardOpen] = useState(false);
-  const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, normalizeRounds } = useStore();
+  const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
 
@@ -34,58 +33,36 @@ export default function App() {
       return `RODADA ${String(rounds.length + 1).padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    // Ensure we have at least 10 rounds
-    if (rounds.length < 10) {
-      const needed = 10 - rounds.length;
-      let nextIndex = rounds.length + 1;
-      for (let i = 0; i < needed; i++) {
-        addRound(`RODADA ${String(nextIndex).padStart(2, '0')}`);
-        nextIndex++;
-      }
-    } else {
-      // Normalize existing rounds to strict format "RODADA 0X" based on their position
-      const needsNormalization = rounds.some((r, i) => r.name !== `RODADA ${String(i + 1).padStart(2, '0')}`);
-      if (needsNormalization) {
-        normalizeRounds();
-      }
-    }
-  }, [rounds.length, addRound, normalizeRounds]);
+
 
   return (
     <div className="min-h-screen bg-[#0f111a] text-slate-100 font-sans flex flex-col">
       {/* Top Navigation Bar */}
-      <nav className="h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-4 shrink-0 gap-4">
-        {/* Left */}
-        <div className="flex items-center gap-4 shrink-0">
+      <nav className="h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 md:px-4 shrink-0 gap-2 md:gap-4">
+        {/* Left Elements */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <button 
             onClick={() => setActiveTab('BOARD')}
-            className="flex items-center gap-4 text-slate-400 hover:text-white transition-colors group"
+            className="flex items-center gap-2 md:gap-4 text-slate-400 hover:text-white transition-colors group"
             title="Início"
           >
             <Home size={24} className="group-hover:text-emerald-400 transition-colors" />
-            <h1 className="text-xl font-bold tracking-wider hidden md:block group-hover:text-emerald-400 transition-colors">BINGO 75</h1>
+            <h1 className="text-lg md:text-xl font-bold tracking-wider hidden md:block group-hover:text-emerald-400 transition-colors">BINGO 75</h1>
           </button>
-          <button className="text-slate-400 hover:text-white ml-2 hidden md:block">
-            <Menu size={24} />
-          </button>
-        </div>
 
-        {/* Center - Round Tabs */}
-        <div className="flex-1 flex justify-center overflow-visible">
           <div className="relative">
             <button 
-               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-               className="flex items-center gap-4 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-2 px-6 text-[13px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[220px]"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-2 lg:gap-4 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-1.5 px-3 lg:px-4 text-[11px] lg:text-[13px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[140px] lg:min-w-[180px]"
             >
-               <span>{activeRound?.name || 'Selecione a Rodada'}</span>
-               <ChevronDown size={16} />
+               <span className="truncate">{activeRound?.name || 'Rodada'}</span>
+               <ChevronDown size={14} className="shrink-0" />
             </button>
             
             {isDropdownOpen && (
                 <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0b0c10] border border-slate-800 rounded-lg shadow-2xl shadow-black/50 z-50 overflow-hidden flex flex-col min-w-[220px]">
+                <div className="absolute top-10 left-0 mt-2 bg-[#0b0c10] border border-slate-800 rounded-lg shadow-2xl shadow-black/50 z-50 overflow-hidden flex flex-col min-w-[220px]">
                     {rounds.map(r => (
                         <div key={r.id} className="flex items-center group relative border-b border-slate-800/50 last:border-0">
                             <button
@@ -128,22 +105,51 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-4 md:gap-6 shrink-0 text-[10px] md:text-xs uppercase tracking-wider font-semibold text-slate-300">
+        {/* Center - Action Buttons */}
+        <div className="flex-1 flex justify-start items-center px-1 overflow-x-hidden">
+            <button 
+              onClick={() => setActiveTab('SCANNER')}
+              className="h-8 px-2 md:px-4 bg-[#1e40af] hover:bg-blue-700 text-white rounded font-bold uppercase text-[10px] md:text-[11px] tracking-wider flex items-center justify-center gap-1 md:gap-2 transition-colors whitespace-nowrap shrink-0"
+            >
+              <Camera size={14} className="shrink-0" /> <span className="hidden sm:inline">Importar Cartelas</span><span className="sm:hidden">Importar</span>
+            </button>
+        </div>
+
+        {/* Right Elements */}
+        <div className="flex items-center gap-3 md:gap-5 shrink-0 text-[9px] lg:text-[11px] uppercase tracking-wider font-semibold text-slate-300 relative z-0">
+          <div className="hidden lg:flex items-center gap-3 lg:gap-4 mr-0 md:mr-2">
+             <button 
+               onClick={() => useStore.getState().undoDraw()}
+               disabled={!activeRound?.drawnNumbers?.length}
+               className="flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50 tracking-wider font-bold"
+               title="Desfazer"
+             >
+               <Undo2 size={16} /> DESFAZER
+             </button>
+             
+             <button 
+               onClick={() => useStore.getState().redoDraw()}
+               disabled={!activeRound?.undoneNumbers?.length}
+               className="flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50 tracking-wider font-bold"
+               title="Refazer"
+             >
+               <Redo2 size={16} /> REFAZER
+             </button>
+          </div>
           <button 
             onClick={() => setActiveTab('STATS')}
-            className={cn("flex items-center gap-1 md:gap-2 hover:text-white transition-colors", activeTab === 'STATS' && "text-emerald-400")}
+            className={cn("flex items-center gap-1 hover:text-white transition-colors", activeTab === 'STATS' && "text-emerald-400")}
           >
-            <BarChart2 size={18} className="hidden md:block" /> ESTATÍSTICAS
+            <BarChart2 size={16} className="hidden md:block" /> ESTATÍSTICAS
           </button>
-          <button className="flex items-center gap-1 md:gap-2 hover:text-white transition-colors">
-            <History size={18} className="hidden md:block" /> HISTÓRICO
+          <button className="flex items-center gap-1 hover:text-white transition-colors">
+            <History size={16} className="hidden md:block" /> HISTÓRICO
           </button>
           <button 
             onClick={() => setActiveTab('ADMIN')}
             className={cn("hover:text-white transition-colors", activeTab === 'ADMIN' && "text-emerald-400")}
           >
-            <Settings size={20} />
+            <Settings size={18} />
           </button>
         </div>
       </nav>
@@ -151,8 +157,16 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden flex flex-col bg-[#0b0c10] p-2">
         {!activeRound ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-slate-400">Criando rodada inicial...</p>
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <p className="text-slate-400">Nenhuma rodada configurada.</p>
+            <button 
+              onClick={() => {
+                addRound(`RODADA ${String(rounds.length + 1).padStart(2, '0')}`);
+              }}
+              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold"
+            >
+              Criar Nova Rodada
+            </button>
           </div>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-2">
@@ -201,17 +215,50 @@ export default function App() {
             )}
 
             {activeTab === 'SCANNER' && (
-               <div className="flex-1 overflow-y-auto"><CardScanner round={activeRound} /></div>
+               <div className="flex-1 overflow-y-auto bg-[#0b0c10] flex flex-col items-center">
+                 <div className="w-full max-w-4xl p-4 flex justify-between items-center bg-[#0b0c10] sticky top-0 z-10 border-b border-slate-800">
+                    <h2 className="text-xl font-bold text-white uppercase tracking-wider">Adicionar Cartela</h2>
+                    <button 
+                      onClick={() => setActiveTab('BOARD')}
+                      className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <X size={24} />
+                      <span className="text-sm font-semibold uppercase tracking-wider hidden sm:block">Fechar</span>
+                    </button>
+                 </div>
+                 <div className="w-full pt-4"><CardScanner round={activeRound} /></div>
+               </div>
             )}
             
             {activeTab === 'STATS' && (
-               <div className="flex-1 overflow-y-auto p-4"><StatsPanel round={activeRound} /></div>
+               <div className="flex-1 overflow-y-auto bg-[#0b0c10] flex flex-col items-center p-4">
+                 <div className="w-full max-w-5xl flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Estatísticas</h2>
+                    <button 
+                      onClick={() => setActiveTab('BOARD')}
+                      className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <X size={24} />
+                      <span className="text-sm font-semibold uppercase tracking-wider hidden sm:block">Fechar</span>
+                    </button>
+                 </div>
+                 <div className="w-full max-w-5xl"><StatsPanel round={activeRound} /></div>
+               </div>
             )}
 
             {activeTab === 'ADMIN' && (
-              <div className="flex-1 overflow-y-auto p-4 flex justify-center">
+              <div className="flex-1 overflow-y-auto p-4 flex justify-center relative">
                 <div className="max-w-2xl w-full">
-                  <h2 className="text-2xl font-bold text-white mb-6">Configurações</h2>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white">Configurações</h2>
+                    <button 
+                      onClick={() => setActiveTab('BOARD')}
+                      className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <X size={24} />
+                      <span className="text-sm font-semibold uppercase tracking-wider hidden sm:block">Fechar</span>
+                    </button>
+                  </div>
                   <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
                     <button 
                       onClick={() => addRound(`RODADA ${String(rounds.length + 1).padStart(2, '0')}`)}
@@ -221,14 +268,25 @@ export default function App() {
                     </button>
                     <div className="space-y-3">
                       {rounds.map(r => (
-                        <div key={r.id} className="flex justify-between p-4 bg-slate-900 rounded-lg border border-slate-700">
-                          <div>
-                            <p className="font-bold text-white">{r.name}</p>
-                            <p className="text-xs text-slate-400">{masterCards.length} cartelas</p>
+                        <div key={r.id} className="flex justify-between items-center p-4 bg-slate-900 rounded-lg border border-slate-700">
+                          <div className="flex-1 flex items-center gap-2 group">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="text"
+                                  value={r.name}
+                                  onChange={(e) => updateRoundName(r.id, e.target.value)}
+                                  className="font-bold text-white bg-transparent border-none outline-none focus:ring-1 focus:ring-emerald-500 rounded px-1 -ml-1 w-[200px]"
+                                />
+                                <Edit size={14} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                              <p className="text-xs text-slate-400">{masterCards.length} cartelas</p>
+                            </div>
                           </div>
                           <button 
-                            onClick={() => { if(confirm('Excluir esta rodada irreversivelmente?')) useStore.getState().deleteRound(r.id); }}
-                            className="text-red-400 hover:text-red-300"
+                            onClick={() => { if(confirm(`Tem certeza que deseja excluir a ${r.name}? Esta ação é irreversível.`)) deleteRound(r.id); }}
+                            className="text-red-400 hover:text-red-300 p-2"
+                            title="Excluir Rodada"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -244,45 +302,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Action Bar */}
-      <footer className="h-16 bg-[#0f111a] border-t border-slate-800 flex items-center justify-between px-4 gap-4 shrink-0">
-         <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto">
-            <button 
-              onClick={() => setActiveTab('SCANNER')}
-              className="h-10 px-6 bg-[#1e40af] hover:bg-blue-700 text-white rounded font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Camera size={18} /> Adicionar Cartela
-            </button>
-            <button 
-              onClick={() => {
-                if(confirm('Tem certeza que deseja zerar TODAS as marcações desta rodada?')) {
-                  useStore.getState().clearDrawnNumbers();
-                }
-              }}
-              className="h-10 px-6 bg-red-800 hover:bg-red-700 text-white rounded font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Trash2 size={18} /> Zerar Tudo
-            </button>
-         </div>
-
-         <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-            <button 
-              onClick={() => useStore.getState().undoDraw()}
-              disabled={!activeRound?.drawnNumbers?.length}
-              className="h-10 px-6 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Undo2 size={18} /> Desfazer
-            </button>
-            
-            <button 
-              onClick={() => useStore.getState().redoDraw()}
-              disabled={!activeRound?.undoneNumbers?.length}
-              className="h-10 px-6 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Redo2 size={18} /> Refazer
-            </button>
-         </div>
-      </footer>
     </div>
   );
 }

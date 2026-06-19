@@ -24,13 +24,17 @@ async function startServer() {
       }
 
       const prompt = `Analyze this bingo card image. It contains a 5x5 grid of numbers for a Bingo 75 game.
-The columns are B (1-15), I (16-30), N (31-45), G (46-60), O (61-75).
-The center space is usually 'FREE' or a star, which you should represent as the number 0.
+The columns are:
+B: numbers 1-15
+I: numbers 16-30
+N: numbers 31-45 (center space is usually 'FREE' or a star, output as 0)
+G: numbers 46-60
+O: numbers 61-75
 Your goal is to extract the 25 numbers from left-to-right (column-by-column or row-by-row, but output it as a flat array of 25 numbers read from left to right, top to bottom: Row 1 left-to-right, Row 2 left-to-right, etc.).
 Also extract the card's serial number if visible (often near "Nº", "No" or just a printed ID).
 Ensure you only return a JSON object with this shape:
 {
-  "numbers": [1, 16, 31, 46, 61], // MUST BE exactly 25 integers
+  "numbers": [1, 16, 31, 46, 61, ...], // MUST BE exactly 25 integers
   "cardNumber": "123" // String, optional. The printed serial/ID of the card. Empty string if none.
 }
 If a number is unreadable, make your best guess or use 0. Ensure no extra text or markdown is returned outside the JSON.`;

@@ -16,9 +16,20 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   ];
 
   return (
-    <div className="w-full bg-[#121826] rounded border border-slate-700 flex flex-col font-sans overflow-hidden">
-      <div className="bg-[#1e40af] text-white text-center py-2 text-sm font-bold uppercase tracking-wider">
-        Números Possíveis
+    <div className="w-full h-full bg-[#121826] rounded border border-slate-700 flex flex-col font-sans overflow-hidden">
+      <div className="bg-[#1e40af] text-white text-center py-2 text-sm font-bold uppercase tracking-wider flex justify-between items-center px-4">
+        <span>Números Possíveis</span>
+        <button 
+           onClick={() => {
+              if (window.confirm("Tem certeza que deseja zerar os números sorteados desta rodada?")) {
+                  useStore.getState().clearDrawnNumbers();
+              }
+           }}
+           title="Zerar Tudo"
+           className="text-white/70 hover:text-red-400 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
       </div>
       
       {/* BINGO Header Row */}

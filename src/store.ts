@@ -9,6 +9,7 @@ interface BingoStore {
   activeRoundId: string | null;
   addRound: (name: string) => void;
   deleteRound: (id: string) => void;
+  updateRoundName: (id: string, newName: string) => void;
   normalizeRounds: () => void;
   setActiveRound: (id: string) => void;
   addMasterCard: (card: Omit<MasterCard, "id">) => void;
@@ -116,11 +117,7 @@ export const useStore = create<BingoStore>()(
 
       deleteRound: (id) => {
         set((state) => {
-          const remaining = state.rounds.filter(r => r.id !== id);
-          const newRounds = remaining.map((r, i) => ({
-            ...r,
-            name: `RODADA ${String(i + 1).padStart(2, '0')}`
-          }));
+          const newRounds = state.rounds.filter(r => r.id !== id);
           return {
             rounds: newRounds,
             activeRoundId: state.activeRoundId === id 
@@ -130,13 +127,15 @@ export const useStore = create<BingoStore>()(
         });
       },
 
-      normalizeRounds: () => {
+      updateRoundName: (id, newName) => {
         set((state) => ({
-          rounds: state.rounds.map((r, i) => ({
-            ...r,
-            name: `RODADA ${String(i + 1).padStart(2, '0')}`
-          }))
+          rounds: state.rounds.map(r => r.id === id ? { ...r, name: newName } : r)
         }));
+      },
+
+      normalizeRounds: () => {
+        // Obsolete if we want to keep custom names. We can just leave it as a no-op or only rename default-like ones.
+        // Doing nothing to preserve custom names.
       },
 
       setActiveRound: (id) => {
