@@ -9,8 +9,12 @@ export const initAuth = async () => {
         if (!auth.currentUser) {
             await signInAnonymously(auth);
         }
-    } catch (e) {
-        console.error("Offline or auth failed", e);
+    } catch (e: any) {
+        if (e?.code === 'auth/admin-restricted-operation') {
+            console.warn("Please enable Anonymous Authentication in the Firebase Console to sync data.");
+        } else {
+            console.warn("Offline or auth failed");
+        }
     }
 };
 

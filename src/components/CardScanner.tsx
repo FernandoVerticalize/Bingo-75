@@ -5,12 +5,14 @@ import { useStore } from '../store';
 import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Tesseract from 'tesseract.js';
+import { extractBingoGrid, processBingoCardCells } from '../lib/ocrPipeline';
 import { syncCardToFirestore, uploadCardImage } from '../lib/sync';
 import { v4 as uuidv4 } from 'uuid';
 
 type ReviewCard = {
   image?: string;
   numbers: number[];
+  confidences?: number[];
   cardNumber: string;
   name: string;
   isDuplicate?: boolean;
@@ -30,73 +32,6 @@ const isValidNumber = (num: number, idx: number) => {
   return true;
 };
 
-// Pré-processamento de imagem em Canvas (Contraste e Escala de Cinza)
-const preprocessImage = (base64: string): Promise<string> => {
-  return new Promise((resolve) => {
-     const img = new Image();
-     img.onload = () => {
-         const canvas = document.createElement('canvas');
-         const ctx = canvas.getContext('2d');
-         if (!ctx) return resolve(base64);
-         
-         canvas.width = img.width;
-         canvas.height = img.height;
-         
-         ctx.drawImage(img, 0, 0);
-         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-         const data = imageData.data;
-         
-         // Aumento drástico de contraste para destacar texto
-         const contrast = 70; // -255 to 255
-         const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-         
-         for (let i = 0; i < data.length; i += 4) {
-             const r = data[i];
-             const g = data[i + 1];
-             const b = data[i + 2];
-             
-             // Escala de cinza
-             const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-             
-             // Contraste
-             const color = factor * (gray - 128) + 128;
-             const finalColor = Math.min(255, Math.max(0, color));
-             
-             data[i] = finalColor;
-             data[i + 1] = finalColor;
-             data[i + 2] = finalColor;
-         }
-         
-         ctx.putImageData(imageData, 0, 0);
-         resolve(canvas.toDataURL('image/jpeg', 0.9));
-     };
-     img.src = base64;
-  });
-};
-
-function parseOCRText(text: string): { numbers: number[], cardNumber: string } {
-    const rawNumbers = (text.match(/\b\d+\b/g) || []).map(Number);
-    const finalNumbers = Array(25).fill(0);
-    
-    const possible = rawNumbers.filter(n => n >= 1 && n <= 75);
-    
-    let ptr = 0;
-    for (let i = 0; i < 25; i++) {
-        if (i === 12) {
-            finalNumbers[i] = 0; // Espaço Livre
-            continue;
-        }
-        if (ptr < possible.length) {
-            finalNumbers[i] = possible[ptr];
-            ptr++;
-        }
-    }
-    
-    const largeNumbers = rawNumbers.filter(n => n > 75);
-    const cardNumber = largeNumbers.length > 0 ? String(largeNumbers[0]) : "";
-
-    return { numbers: finalNumbers, cardNumber };
-}
 
 export function CardScanner({ round }: { round: BingoRound }) {
   const masterCards = useStore(state => state.masterCards);
@@ -124,40 +59,35 @@ export function CardScanner({ round }: { round: BingoRound }) {
     for (let i = 0; i < base64Images.length; i++) {
         const base64Image = base64Images[i];
         setProgress({ current: i + 1, total: base64Images.length });
-        setProgressMsg(`Otimizando imagem ${i + 1}...`);
         
         try {
-          const processedImage = await preprocessImage(base64Image);
+          setProgressMsg(`Detectando grade da cartela ${i + 1} (OpenCV.js)...`);
+          const cellsBase64 = await extractBingoGrid(base64Image);
           
-          setProgressMsg(`Lendo texto da cartela ${i + 1} (Tesseract OCR local)...`);
-          const result = await Tesseract.recognize(
-            processedImage,
-            'eng', // ou 'por' se carregar pacote adicional
-            { 
-               logger: m => {
-                 if (m.status === 'recognizing text') {
-                     setProgressMsg(`Processando OCR (${Math.round(m.progress * 100)}%)`);
-                 }
-               } 
-            }
-          );
-          
-          const text = result.data.text;
-          const extracted = parseOCRText(text);
+          setProgressMsg(`Lendo números célula a célula (Tesseract OCR local)...`);
+          const { numbers, confidences } = await processBingoCardCells(cellsBase64, (prog) => {
+             setProgressMsg(`Lendo números da cartela ${i + 1} (${Math.round(prog * 100)}%)...`);
+          });
+
+          // Tentar encontrar o cardNumber buscando no topo da imagem original, se possível. 
+          // Mas por enquanto aceitamos vazio ou OCR rápido pro topo se necessário
+          // Aqui pularemos cardNumber e focaremos apenas nos números da cartela (grade BINGO)
 
           results.push({
             image: base64Image,
-            numbers: extracted.numbers,
-            cardNumber: extracted.cardNumber,
+            numbers: numbers,
+            confidences: confidences,
+            cardNumber: "", // O OpenCV foca na grade de bingo. O ID da cartela não está num lugar previsível, omitimos p/ focar apenas na grade.
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
           });
         } catch (err: any) {
           results.push({
             image: base64Image,
             numbers: Array(25).fill(0),
+            confidences: Array(25).fill(0),
             cardNumber: "",
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            originalError: err.message || "Falha no processamento local OCR. Ajuste manualmente."
+            originalError: err.message || "Falha no processamento OpenCV/OCR. Ajuste manualmente ou tire outra foto."
           });
         }
     }
@@ -449,8 +379,8 @@ export function CardScanner({ round }: { round: BingoRound }) {
                 </div>
 
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 mb-6 flex-shrink-0">
-                  <div className="text-center mb-4 text-slate-400 text-xs uppercase tracking-wider font-bold items-center justify-center">
-                    Células vermelhas indicam possível erro
+                  <div className="text-center mb-4 text-slate-400 text-[10px] uppercase tracking-wider font-bold items-center justify-center">
+                     <span className="text-red-400">Vermelho: erro</span> • <span className="text-yellow-400">Laranja: baixa confiança</span> • <span className="text-slate-400">Cinza: ok</span>
                   </div>
                   
                   <div className="grid grid-cols-5 gap-2">
@@ -459,6 +389,8 @@ export function CardScanner({ round }: { round: BingoRound }) {
                     ))}
                     {currentReview.numbers.map((num, idx) => {
                       const valid = isValidNumber(num, idx);
+                      const conf = currentReview.confidences ? currentReview.confidences[idx] : 100;
+                      const lowConfidence = conf < 90;
                       return (
                       <input
                         key={idx}
@@ -469,18 +401,23 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors",
                           idx === 12 
                             ? "bg-slate-700 text-slate-400 text-xs" 
-                            : valid
-                               ? "bg-slate-800 text-white border border-slate-600 hover:bg-slate-700"
-                               : "bg-red-900/50 text-red-100 border border-red-500 focus:bg-red-900 focus:ring-red-400"
+                            : !valid
+                               ? "bg-red-900/50 text-red-100 border border-red-500 focus:bg-red-900 focus:ring-red-400"
+                               : lowConfidence
+                                  ? "bg-orange-900/50 text-orange-200 border border-orange-500 focus:bg-orange-900 focus:ring-orange-400"
+                               : "bg-slate-800 text-white border border-slate-600 hover:bg-slate-700"
                         )}
                         value={num === 0 ? '' : num}
                         onChange={(e) => {
                           const newNums = [...currentReview.numbers];
+                          const newConfs = currentReview.confidences ? [...currentReview.confidences] : Array(25).fill(100);
                           const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
                           newNums[idx] = val;
-                          updateCurrentReview({ numbers: newNums });
+                          newConfs[idx] = 100; // Reset confidence on manual edit
+                          updateCurrentReview({ numbers: newNums, confidences: newConfs });
                         }}
                         placeholder={idx === 12 ? '★' : ''}
+                        title={conf ? `Confiança: ${Math.round(conf)}%` : undefined}
                       />
                     )})}
                   </div>
