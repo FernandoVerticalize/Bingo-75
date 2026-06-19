@@ -26,6 +26,7 @@ type ReviewCard = {
 };
 
 const isValidNumber = (num: number, idx: number) => {
+  if (idx === 12 && (!num || num === 0)) return true; // Centro livre permitido
   if (!num || num === 0) return false;
   const col = idx % 5;
   if (col === 0 && (num < 1 || num > 15)) return false;
@@ -442,7 +443,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                     {currentReview.numbers.map((num, idx) => {
                       const valid = isValidNumber(num, idx);
                       const conf = currentReview.confidences ? currentReview.confidences[idx] : 100;
-                      const lowConfidence = conf < 90;
+                      
                       return (
                       <input
                         key={idx}
@@ -450,12 +451,12 @@ export function CardScanner({ round }: { round: BingoRound }) {
                         min="0"
                         max="75"
                         className={cn(
-                          "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors",
-                          !valid
-                               ? "bg-red-900/50 text-red-100 border border-red-500 focus:bg-red-900 focus:ring-red-400"
-                               : lowConfidence
-                                  ? "bg-orange-900/50 text-orange-200 border border-orange-500 focus:bg-orange-900 focus:ring-orange-400"
-                               : "bg-slate-800 text-white border border-slate-600 hover:bg-slate-700"
+                          "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors border",
+                          (!valid || conf < 80)
+                               ? "bg-red-900/70 text-red-100 border-red-500 focus:bg-red-800"
+                               : (conf < 95)
+                                  ? "bg-yellow-900/70 text-yellow-200 border-yellow-500 focus:bg-yellow-800"
+                               : "bg-emerald-900/30 text-emerald-100 border-emerald-500 hover:bg-emerald-800/80"
                         )}
                         value={num === 0 ? '' : num}
                         onChange={(e) => {

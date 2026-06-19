@@ -28,10 +28,11 @@ export type OCRCellResult = {
 };
 
 // Utilities for validation
-const isValidForColumn = (val: number, colIndex: number): boolean => {
+const isValidForColumn = (val: number, colIndex: number, cellIndex: number): boolean => {
+  if (cellIndex === 12 && (!val || val === 0)) return true;
   if (colIndex === 0) return val >= 1 && val <= 15;
   if (colIndex === 1) return val >= 16 && val <= 30;
-  if (colIndex === 2) return val >= 31 && val <= 45; // center is free and won't be checked
+  if (colIndex === 2) return val >= 31 && val <= 45;
   if (colIndex === 3) return val >= 46 && val <= 60;
   if (colIndex === 4) return val >= 61 && val <= 75;
   return false;
@@ -261,12 +262,6 @@ export const processBingoCardCells = async (
 
   for (let i = 0; i < 25; i++) {
     const colIndex = i % 5;
-    if (i === 12) { // Free space
-      numbers[i] = 0;
-      confidences[i] = 100;
-      if (onProgress) onProgress((i + 1) / 25);
-      continue;
-    }
     
     // Pass 1
     const res1 = await runOCRPass(worker1, cellsBase64[i], 8); // PSM_SINGLE_WORD
@@ -275,8 +270,16 @@ export const processBingoCardCells = async (
     
     let bestRes = res1.confidence > res2.confidence ? res1 : res2;
     
+    // If it's cell 12 and it's empty or invalid, assume it's the free space
+    if (i === 12 && (!bestRes.value || bestRes.value === 0)) {
+        numbers[i] = 0;
+        confidences[i] = 100;
+        if (onProgress) onProgress((i + 1) / 25);
+        continue;
+    }
+
     // Validation + Auto-Correction
-    if (!isValidForColumn(bestRes.value, colIndex)) {
+    if (!isValidForColumn(bestRes.value, colIndex, i)) {
       if (bestRes.value > 0) {
         // Find best match if reasonable string
         const corrected = findBestMatch(bestRes.value.toString(), colIndex);
@@ -284,6 +287,9 @@ export const processBingoCardCells = async (
         // penalty for correction
         bestRes.confidence = bestRes.confidence * 0.8;
         autoCorrectedCount++;
+      } else if (i === 12) {
+        bestRes.value = 0;
+        bestRes.confidence = 100;
       }
     }
     

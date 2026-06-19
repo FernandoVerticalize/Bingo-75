@@ -264,7 +264,8 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
       {/* Grid Cells */}
       <div className="grid grid-cols-5 gap-px bg-slate-700 p-px flex-1">
         {card.numbers.map((num, idx) => {
-          const isMarked = num !== 0 && num !== null && drawnSet.has(num);
+          const isFree = num === 0;
+          const isMarked = isFree || (num !== null && drawnSet.has(num));
           const isEmpty = num === null || num === 0;
 
           return (
@@ -273,8 +274,7 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
               className={cn(
                 "w-full aspect-square flex items-center justify-center transition-colors overflow-hidden",
                 fullSize ? "text-xl font-bold" : "text-[9px] sm:text-[10px] md:text-[11px] lg:text-[12px] font-semibold leading-none",
-                isMarked && !isEmpty ? "bg-emerald-600 text-white shadow-inner" : "bg-[#182132] text-slate-300",
-                isEmpty && "bg-[#182132]" // Just empty dark cell
+                isMarked ? "bg-emerald-600 text-white shadow-inner" : "bg-[#182132] text-slate-300"
               )}
             >
               {!isEmpty ? num : null}
