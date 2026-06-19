@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
+import { initAuth } from './lib/sync';
 import { 
   Settings, 
   Camera, 
@@ -28,6 +29,10 @@ export default function App() {
   const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
+
+  useEffect(() => {
+    initAuth();
+  }, []);
 
   const getNextRoundName = () => {
       return `RODADA ${String(rounds.length + 1).padStart(2, '0')}`;
@@ -292,6 +297,30 @@ export default function App() {
                           </button>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-700">
+                      <h3 className="text-lg font-bold text-white uppercase tracking-wider mb-4">Diagnóstico OCR</h3>
+                      <div className="bg-[#0b0c10] p-4 rounded-xl border border-slate-700 grid grid-cols-2 gap-4 text-sm">
+                         <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 uppercase font-bold text-[10px]">Motor OCR</span>
+                            <span className="text-emerald-400 font-medium">Tesseract.js (Local)</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 uppercase font-bold text-[10px]">Status</span>
+                            <span className="text-slate-200 font-medium flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div> Operacional
+                            </span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 uppercase font-bold text-[10px]">Processamento de Imagem</span>
+                            <span className="text-slate-200 font-medium">Canvas (Contraste 70%)</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 uppercase font-bold text-[10px]">Custo por Leitura</span>
+                            <span className="text-slate-200 font-medium">$0.00 (Gratuito)</span>
+                         </div>
+                      </div>
                     </div>
                   </div>
                 </div>

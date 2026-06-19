@@ -193,7 +193,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
   );
 }
 
-function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { card: BingoCard, index: number, drawnNumbers: number[], scale?: number, onClick: () => void }) {
+function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: React.Key, card: BingoCard, index: number, drawnNumbers: number[], scale?: number, onClick: () => void }) {
   const isEmpty = card.numbers[0] === null;
   let displayName = isEmpty ? `${index}ª CARTELA` : card.name;
   if (/^Cartela\s+(\d+)$/i.test(displayName)) {

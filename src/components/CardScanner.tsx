@@ -4,6 +4,9 @@ import type { BingoRound, MasterCard } from '../types';
 import { useStore } from '../store';
 import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
+import Tesseract from 'tesseract.js';
+import { syncCardToFirestore, uploadCardImage } from '../lib/sync';
+import { v4 as uuidv4 } from 'uuid';
 
 type ReviewCard = {
   image?: string;
@@ -27,6 +30,74 @@ const isValidNumber = (num: number, idx: number) => {
   return true;
 };
 
+// Pré-processamento de imagem em Canvas (Contraste e Escala de Cinza)
+const preprocessImage = (base64: string): Promise<string> => {
+  return new Promise((resolve) => {
+     const img = new Image();
+     img.onload = () => {
+         const canvas = document.createElement('canvas');
+         const ctx = canvas.getContext('2d');
+         if (!ctx) return resolve(base64);
+         
+         canvas.width = img.width;
+         canvas.height = img.height;
+         
+         ctx.drawImage(img, 0, 0);
+         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+         const data = imageData.data;
+         
+         // Aumento drástico de contraste para destacar texto
+         const contrast = 70; // -255 to 255
+         const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+         
+         for (let i = 0; i < data.length; i += 4) {
+             const r = data[i];
+             const g = data[i + 1];
+             const b = data[i + 2];
+             
+             // Escala de cinza
+             const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+             
+             // Contraste
+             const color = factor * (gray - 128) + 128;
+             const finalColor = Math.min(255, Math.max(0, color));
+             
+             data[i] = finalColor;
+             data[i + 1] = finalColor;
+             data[i + 2] = finalColor;
+         }
+         
+         ctx.putImageData(imageData, 0, 0);
+         resolve(canvas.toDataURL('image/jpeg', 0.9));
+     };
+     img.src = base64;
+  });
+};
+
+function parseOCRText(text: string): { numbers: number[], cardNumber: string } {
+    const rawNumbers = (text.match(/\b\d+\b/g) || []).map(Number);
+    const finalNumbers = Array(25).fill(0);
+    
+    const possible = rawNumbers.filter(n => n >= 1 && n <= 75);
+    
+    let ptr = 0;
+    for (let i = 0; i < 25; i++) {
+        if (i === 12) {
+            finalNumbers[i] = 0; // Espaço Livre
+            continue;
+        }
+        if (ptr < possible.length) {
+            finalNumbers[i] = possible[ptr];
+            ptr++;
+        }
+    }
+    
+    const largeNumbers = rawNumbers.filter(n => n > 75);
+    const cardNumber = largeNumbers.length > 0 ? String(largeNumbers[0]) : "";
+
+    return { numbers: finalNumbers, cardNumber };
+}
+
 export function CardScanner({ round }: { round: BingoRound }) {
   const masterCards = useStore(state => state.masterCards);
   const addMasterCard = useStore(state => state.addMasterCard);
@@ -34,6 +105,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
   
   const [mode, setMode] = useState<'IDLE' | 'CAMERA' | 'PROCESSING' | 'REVIEW'>('IDLE');
   const [error, setError] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState("");
   
   const [reviewQueue, setReviewQueue] = useState<ReviewCard[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -52,40 +124,40 @@ export function CardScanner({ round }: { round: BingoRound }) {
     for (let i = 0; i < base64Images.length; i++) {
         const base64Image = base64Images[i];
         setProgress({ current: i + 1, total: base64Images.length });
+        setProgressMsg(`Otimizando imagem ${i + 1}...`);
         
         try {
-          const mimeType = base64Image.split(';')[0].replace('data:', '');
-          const base64Data = base64Image.split(',')[1];
+          const processedImage = await preprocessImage(base64Image);
           
-          const response = await fetch('/api/scan-card', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageParams: { inlineData: { data: base64Data, mimeType } }
-            })
+          setProgressMsg(`Lendo texto da cartela ${i + 1} (Tesseract OCR local)...`);
+          const result = await Tesseract.recognize(
+            processedImage,
+            'eng', // ou 'por' se carregar pacote adicional
+            { 
+               logger: m => {
+                 if (m.status === 'recognizing text') {
+                     setProgressMsg(`Processando OCR (${Math.round(m.progress * 100)}%)`);
+                 }
+               } 
+            }
+          );
+          
+          const text = result.data.text;
+          const extracted = parseOCRText(text);
+
+          results.push({
+            image: base64Image,
+            numbers: extracted.numbers,
+            cardNumber: extracted.cardNumber,
+            name: `${masterCards.length + results.length + 1}ª CARTELA`,
           });
-
-          if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
-
-          const data = await response.json();
-          
-          if (data.numbers && Array.isArray(data.numbers) && data.numbers.length === 25) {
-            results.push({
-                image: base64Image,
-                numbers: data.numbers,
-                cardNumber: data.cardNumber || "",
-                name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            });
-          } else {
-            throw new Error("Formato inválido.");
-          }
         } catch (err: any) {
           results.push({
             image: base64Image,
             numbers: Array(25).fill(0),
             cardNumber: "",
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            originalError: err.message || "Falha no OCR. Ajuste manualmente."
+            originalError: err.message || "Falha no processamento local OCR. Ajuste manualmente."
           });
         }
     }
@@ -105,7 +177,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files as FileList);
     
     Promise.all(files.map(file => {
       return new Promise<string>((resolve) => {
@@ -169,16 +241,33 @@ export function CardScanner({ round }: { round: BingoRound }) {
       }
   };
 
-  const saveCard = () => {
+  const saveCard = async () => {
     if (currentReview.isDuplicate && duplicateAction === 'PROMPT') {
         // user hasn't made a decision, should prompt
         return;
     }
-    addMasterCard({
+    
+    // Prepare card
+    const cardId = uuidv4();
+    const newCard = {
+      id: cardId,
       name: currentReview.name,
       cardNumber: currentReview.cardNumber,
       numbers: currentReview.numbers
-    });
+    };
+
+    // Save locally
+    addMasterCard(newCard);
+
+    // Run remote uploads in background instead of blocking the UI
+    if (currentReview.image) {
+      uploadCardImage(cardId, currentReview.image).then(() => {
+         syncCardToFirestore(newCard);
+      });
+    } else {
+      syncCardToFirestore(newCard);
+    }
+
     nextCard();
   };
 
@@ -262,13 +351,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
         {mode === 'CAMERA' && (
           <div className="flex flex-col items-center">
             <div className="relative justify-center rounded-2xl overflow-hidden bg-black mx-auto border-4 border-slate-700 w-full max-w-sm aspect-[4/5] flex items-center">
-               <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                videoConstraints={{ facingMode: "environment" }}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+               <Webcam {...({ audio: false, ref: webcamRef, screenshotFormat: "image/jpeg", videoConstraints: { facingMode: "environment" }, className: "absolute inset-0 w-full h-full object-cover"} as any)} />
               <div className="absolute inset-0 pointer-events-none border-[2px] m-8 border-dashed border-emerald-500/50 rounded-lg"></div>
             </div>
             
@@ -295,6 +378,9 @@ export function CardScanner({ round }: { round: BingoRound }) {
             <p className="text-lg font-bold">Analisando imagem com IA...</p>
             {progress.total >= 1 && (
                 <p className="text-sm text-slate-400 mt-2 font-medium bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700">Extraindo {progress.current} de {progress.total} {progress.total === 1 ? 'cartela' : 'cartelas'}</p>
+            )}
+            {progressMsg && (
+                <p className="text-xs text-slate-500 mt-2">{progressMsg}</p>
             )}
           </div>
         )}

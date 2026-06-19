@@ -143,13 +143,13 @@ export const useStore = create<BingoStore>()(
       },
 
       addMasterCard: (cardData) => {
-        set((state) => ({
-          masterCards: [
-            ...state.masterCards,
-            { ...cardData, id: uuidv4() }
-          ]
-        }));
-      },
+    set((state) => ({
+      masterCards: [
+        ...state.masterCards,
+        { ...cardData, id: (cardData as any).id || uuidv4() }
+      ]
+    }));
+  },
 
       deleteMasterCard: (cardId) => {
         set((state) => ({
