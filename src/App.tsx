@@ -195,7 +195,7 @@ export default function App() {
                 </div>
                 
                 {/* Caller Board Container (Right, Responsive Width) - Desktop */}
-                <div className="hidden lg:block w-[180px] xl:w-[220px] shrink-0 min-h-0 bg-[#0b0c10] h-full">
+                <div className="hidden lg:block shrink-0 min-h-0 bg-[#0b0c10] h-full max-w-[50vw]">
                   <CallerBoard round={activeRound} />
                 </div>
 
