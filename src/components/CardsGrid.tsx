@@ -88,7 +88,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
             <div className="w-full mx-auto">
                {isEditing ? (
                  <div className="flex flex-col flex-1 bg-black p-0.5 pb-0">
-                    <div className="grid grid-cols-5 bg-black text-white px-px">
+                    <div className="grid grid-cols-5 bg-black text-white px-px" translate="no">
                       {['B', 'I', 'N', 'G', 'O'].map(letter => <div key={letter} className="flex items-center justify-center font-bold text-xl pb-3 pt-2">{letter}</div>)}
                     </div>
                     <div className="grid grid-cols-5 gap-px bg-slate-700 p-px flex-1">
@@ -246,7 +246,7 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
   return (
     <div className="flex flex-col flex-1 bg-black p-0.5 pb-0">
       {/* Black BINGO Header */}
-      <div className="grid grid-cols-5 bg-black text-white px-px">
+      <div className="grid grid-cols-5 bg-black text-white px-px" translate="no">
         {letters.map((letter) => (
           <div 
             key={letter} 

@@ -383,7 +383,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                      <span className="text-red-400">Vermelho: erro</span> • <span className="text-yellow-400">Laranja: baixa confiança</span> • <span className="text-slate-400">Cinza: ok</span>
                   </div>
                   
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-5 gap-2" translate="no">
                     {['B', 'I', 'N', 'G', 'O'].map((l, i) => (
                       <div key={l} className={cn("text-center font-bold pb-2", i===0?'text-blue-400':i===1?'text-red-400':i===2?'text-yellow-400':i===3?'text-emerald-400':'text-purple-400')}>{l}</div>
                     ))}
