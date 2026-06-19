@@ -23,6 +23,7 @@ export function CallerBoard({ round }: { round: BingoRound }) {
 
   // 'auto' or percentage (50 to 300)
   const [zoomLevel, setZoomLevel] = useState<number | 'auto'>('auto');
+  const [ratioMode, setRatioMode] = useState<'3x3' | '3x2'>('3x3');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -41,33 +42,36 @@ export function CallerBoard({ round }: { round: BingoRound }) {
     return () => observer.disconnect();
   }, []);
 
-  const MIN_CELL_SIZE = 24; 
-  const fixedCellSize = 44; // 100% standard size
+  const MIN_CELL_WIDTH = 24; 
+  const fixedCellWidth = 44; // 100% standard width
 
-  let computedCellSize = fixedCellSize;
+  let computedCellWidth = fixedCellWidth;
 
   // Calculate maximum auto-fit cell size
   if (zoomLevel === 'auto') {
-    if (containerHeight > 0) {
+    if (containerHeight > 0 && containerWidth > 0) {
        // Table has 16 rows and 5 columns. Gap is 1px.
-       // height = 16 * cellSize + 15
-       const maxByHeight = Math.floor((containerHeight - 15) / 16);
+       // height = 16 * cellHeight + 15
+       // width = 5 * cellWidth + 4
        
-       let bestSize = maxByHeight;
-       // If container is strictly constraint horizontally (like on mobile) we factor it in
-       if (containerWidth > 0 && typeof window !== 'undefined' && window.innerWidth < 1024) {
-           const maxByWidth = Math.floor((containerWidth - 4) / 5);
-           bestSize = Math.min(maxByHeight, maxByWidth);
+       let maxWByHeight = Math.floor((containerHeight - 15) / 16);
+       if (ratioMode === '3x2') {
+           maxWByHeight = Math.floor(((containerHeight - 15) / 16) * 1.5);
        }
-       computedCellSize = Math.max(MIN_CELL_SIZE, bestSize); 
+       
+       const maxWByWidth = Math.floor((containerWidth - 4) / 5);
+       
+       computedCellWidth = Math.max(MIN_CELL_WIDTH, Math.min(maxWByHeight, maxWByWidth)); 
     }
   } else {
-    computedCellSize = (fixedCellSize * zoomLevel) / 100;
+    computedCellWidth = (fixedCellWidth * zoomLevel) / 100;
   }
 
-  if (computedCellSize < MIN_CELL_SIZE) computedCellSize = MIN_CELL_SIZE;
+  if (computedCellWidth < MIN_CELL_WIDTH) computedCellWidth = MIN_CELL_WIDTH;
 
-  const currentZoomPercent = zoomLevel === 'auto' ? Math.round((computedCellSize / fixedCellSize) * 100) : zoomLevel;
+  const computedCellHeight = ratioMode === '3x3' ? computedCellWidth : Math.floor(computedCellWidth * (2/3));
+
+  const currentZoomPercent = zoomLevel === 'auto' ? Math.round((computedCellWidth / fixedCellWidth) * 100) : zoomLevel;
 
   const handleZoomOut = () => {
      if (currentZoomPercent > 50) setZoomLevel(Math.max(50, currentZoomPercent - 25));
@@ -80,7 +84,7 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   const handleZoomReset = () => setZoomLevel(100);
   const handleZoomAuto = () => setZoomLevel('auto');
   
-  const tableWidth = (computedCellSize * 5) + 4; // 5 cols + 4 gaps
+  const tableWidth = (computedCellWidth * 5) + 4; // 5 cols + 4 gaps
 
   return (
     <div className="w-full h-full bg-[#121826] rounded-lg border border-slate-700 flex flex-col font-sans overflow-hidden shadow-xl lg:max-w-full" style={{ width: zoomLevel === 'auto' && tableWidth > 0 ? tableWidth + 2 : '100%' }}>
@@ -101,47 +105,58 @@ export function CallerBoard({ round }: { round: BingoRound }) {
            </button>
         </div>
         
-        {/* Zoom Controls Area */}
-        <div className="flex items-center justify-center gap-1.5 px-2">
-           <button 
-             onClick={handleZoomOut} 
-             title="Reduzir (➖)" 
-             className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
-             disabled={currentZoomPercent <= 50}
-           >
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-           </button>
+        {/* Controls Area */}
+        <div className="flex flex-col gap-2 px-2">
+           <div className="flex items-center justify-center gap-1.5">
+              <button 
+                onClick={handleZoomOut} 
+                title="Reduzir (➖)" 
+                className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
+                disabled={currentZoomPercent <= 50}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
 
-           <button 
-             onClick={handleZoomReset} 
-             title="Zoom Padrão (100%)" 
-             className={cn(
-               "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
-               zoomLevel === 100 ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
-             )}
-           >
-             <Search size={12} strokeWidth={3} /> 100%
-           </button>
+              <button 
+                onClick={handleZoomReset} 
+                title="Zoom Padrão (100%)" 
+                className={cn(
+                  "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
+                  zoomLevel === 100 ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
+                )}
+              >
+                <Search size={12} strokeWidth={3} /> 100%
+              </button>
 
-           <button 
-             onClick={handleZoomAuto} 
-             title="Ajustar à Tela" 
-             className={cn(
-               "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
-               zoomLevel === 'auto' ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
-             )}
-           >
-             <Monitor size={12} strokeWidth={3} /> AJUSTAR
-           </button>
+              <button 
+                onClick={handleZoomAuto} 
+                title="Ajustar à Tela" 
+                className={cn(
+                  "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
+                  zoomLevel === 'auto' ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
+                )}
+              >
+                <Monitor size={12} strokeWidth={3} /> AJUSTAR
+              </button>
 
-           <button 
-             onClick={handleZoomIn} 
-             title="Ampliar (➕)" 
-             className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
-             disabled={currentZoomPercent >= 300}
-           >
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-           </button>
+              <button 
+                onClick={handleZoomIn} 
+                title="Ampliar (➕)" 
+                className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
+                disabled={currentZoomPercent >= 300}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+           </div>
+           
+           <div className="flex justify-center">
+              <button 
+                onClick={() => setRatioMode(m => m === '3x3' ? '3x2' : '3x3')}
+                className="px-2 h-7 bg-black/20 hover:bg-black/40 rounded flex items-center gap-1.5 text-[11px] font-bold transition-colors border border-transparent whitespace-nowrap"
+              >
+                📐 Proporção: {ratioMode === '3x3' ? '3×3' : '3×2'}
+              </button>
+           </div>
         </div>
       </div>
       
@@ -154,15 +169,15 @@ export function CallerBoard({ round }: { round: BingoRound }) {
             className="grid grid-cols-5 gap-px bg-slate-700 m-auto shrink-0 border-x border-slate-700"
             style={{ width: tableWidth, alignSelf: 'flex-start' }}
          >
-            {/* Header row */}
+             {/* Header row */}
             {columns.map(col => (
                <div 
                  key={col.letter} 
                  className="bg-black text-white font-bold flex items-center justify-center pointer-events-none"
                  translate="no"
-                 style={{ height: computedCellSize }}
+                 style={{ height: computedCellHeight }}
                >
-                  <span style={{ fontSize: Math.max(10, computedCellSize * 0.45) }}>{col.letter}</span>
+                  <span style={{ fontSize: Math.max(10, computedCellHeight * 0.45) }}>{col.letter}</span>
                </div>
             ))}
             
@@ -188,8 +203,8 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                                 : "bg-[#0b1220] text-white hover:bg-slate-700"
                         )}
                         style={{ 
-                            height: computedCellSize,
-                            fontSize: Math.max(11, computedCellSize * 0.42) 
+                            height: computedCellHeight,
+                            fontSize: Math.max(11, computedCellHeight * 0.42) 
                         }}
                       >
                         {num}
