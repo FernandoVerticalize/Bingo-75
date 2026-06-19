@@ -248,9 +248,10 @@ export const runOCRPass = async (worker: Tesseract.Worker, imageBase64: string, 
 export const processBingoCardCells = async (
   cellsBase64: string[], 
   onProgress?: (progress: number) => void
-): Promise<{ numbers: number[], confidences: number[] }> => {
+): Promise<{ numbers: number[], confidences: number[], autoCorrectedCount: number }> => {
   const numbers: number[] = new Array(25).fill(0);
   const confidences: number[] = new Array(25).fill(0);
+  let autoCorrectedCount = 0;
   
   // Initialize worker for pass 1 (single word)
   const worker1 = await Tesseract.createWorker('eng', 1);
@@ -282,6 +283,7 @@ export const processBingoCardCells = async (
         bestRes.value = corrected;
         // penalty for correction
         bestRes.confidence = bestRes.confidence * 0.8;
+        autoCorrectedCount++;
       }
     }
     
@@ -294,5 +296,5 @@ export const processBingoCardCells = async (
   await worker1.terminate();
   await worker2.terminate();
   
-  return { numbers, confidences };
+  return { numbers, confidences, autoCorrectedCount };
 };

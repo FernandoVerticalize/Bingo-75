@@ -18,6 +18,11 @@ type ReviewCard = {
   isDuplicate?: boolean;
   duplicateOfId?: string;
   originalError?: string;
+  timeTaken?: number;
+  avgConfidence?: number;
+  suspiciousCount?: number;
+  autoCorrected?: number;
+  userCorrections?: number;
 };
 
 const isValidNumber = (num: number, idx: number) => {
@@ -60,25 +65,42 @@ export function CardScanner({ round }: { round: BingoRound }) {
         const base64Image = base64Images[i];
         setProgress({ current: i + 1, total: base64Images.length });
         
+        const startTime = performance.now();
         try {
           setProgressMsg(`Detectando grade da cartela ${i + 1} (OpenCV.js)...`);
           const cellsBase64 = await extractBingoGrid(base64Image);
           
           setProgressMsg(`Lendo números célula a célula (Tesseract OCR local)...`);
-          const { numbers, confidences } = await processBingoCardCells(cellsBase64, (prog) => {
+          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(cellsBase64, (prog) => {
              setProgressMsg(`Lendo números da cartela ${i + 1} (${Math.round(prog * 100)}%)...`);
           });
 
-          // Tentar encontrar o cardNumber buscando no topo da imagem original, se possível. 
-          // Mas por enquanto aceitamos vazio ou OCR rápido pro topo se necessário
-          // Aqui pularemos cardNumber e focaremos apenas nos números da cartela (grade BINGO)
+          const timeTakenSeconds = Math.round((performance.now() - startTime) / 1000);
+
+          let sumConf = 0;
+          let validCount = 0;
+          let suspiciousCount = 0;
+          for (let j = 0; j < 25; j++) {
+            if (j === 12) continue; // skip free space
+            sumConf += confidences[j];
+            validCount++;
+            if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
+              suspiciousCount++;
+            }
+          }
+          const avgConfidence = validCount > 0 ? (sumConf / validCount) : 0;
 
           results.push({
             image: base64Image,
             numbers: numbers,
             confidences: confidences,
-            cardNumber: "", // O OpenCV foca na grade de bingo. O ID da cartela não está num lugar previsível, omitimos p/ focar apenas na grade.
+            cardNumber: "", 
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
+            timeTaken: timeTakenSeconds,
+            avgConfidence: avgConfidence,
+            suspiciousCount: suspiciousCount,
+            autoCorrected: autoCorrectedCount,
+            userCorrections: 0
           });
         } catch (err: any) {
           results.push({
@@ -140,6 +162,8 @@ export function CardScanner({ round }: { round: BingoRound }) {
           }
       }
   }, [mode, currentReview, masterCards, duplicateAction]);
+
+  const isValidReady = currentReview ? currentReview.numbers.every((num, idx) => isValidNumber(num, idx)) : true;
 
   const nextCard = () => {
      setReviewQueue(q => q.slice(1));
@@ -342,6 +366,37 @@ export function CardScanner({ round }: { round: BingoRound }) {
                     <div className="text-xs text-red-200 uppercase tracking-widest leading-relaxed"><span className="font-bold">Aviso OCR:</span> {currentReview.originalError}</div>
                   </div>
                 )}
+
+                {currentReview.avgConfidence !== undefined && (
+                  <div className={cn("mb-4 p-3 rounded-lg border flex flex-col gap-1.5 flex-shrink-0 text-sm", 
+                     currentReview.avgConfidence < 85 ? "bg-orange-900/40 border-orange-500/50 text-orange-200" : "bg-emerald-900/20 border-emerald-500/30 text-emerald-200"
+                  )}>
+                     <div className="font-bold uppercase tracking-wider text-xs mb-1 opacity-80 flex items-center gap-2">
+                        <span>Análise OCR</span>
+                        {currentReview.avgConfidence < 85 && <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-[10px]">VERIFICAÇÃO MANUAL EXIGIDA</span>}
+                     </div>
+                     <div className="flex justify-between">
+                         <span className="opacity-80">Confiança Média:</span>
+                         <span className="font-mono font-bold">{Math.round(currentReview.avgConfidence)}%</span>
+                     </div>
+                     <div className="flex justify-between">
+                         <span className="opacity-80">Células Suspeitas:</span>
+                         <span className={cn("font-mono font-bold", currentReview.suspiciousCount && currentReview.suspiciousCount > 0 ? "text-red-400" : "")}>{currentReview.suspiciousCount || 0}</span>
+                     </div>
+                     <div className="flex justify-between">
+                         <span className="opacity-80">Auto-Corrigidas:</span>
+                         <span className="font-mono font-bold">{currentReview.autoCorrected || 0}</span>
+                     </div>
+                     <div className="flex justify-between">
+                         <span className="opacity-80">Correções do Usuário:</span>
+                         <span className="font-mono font-bold">{currentReview.userCorrections || 0}</span>
+                     </div>
+                     <div className="flex justify-between border-t border-current/20 pt-1 mt-1">
+                         <span className="opacity-80 text-xs">Tempo Processamento:</span>
+                         <span className="font-mono font-bold text-xs">{currentReview.timeTaken || 0}s</span>
+                     </div>
+                  </div>
+                )}
                 
                 {currentReview.isDuplicate && duplicateAction === 'PROMPT' && (
                   <div className="mb-4 p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg flex flex-col gap-3 flex-shrink-0">
@@ -414,7 +469,8 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
                           newNums[idx] = val;
                           newConfs[idx] = 100; // Reset confidence on manual edit
-                          updateCurrentReview({ numbers: newNums, confidences: newConfs });
+                          const userCorrections = (currentReview.userCorrections || 0) + 1;
+                          updateCurrentReview({ numbers: newNums, confidences: newConfs, userCorrections });
                         }}
                         placeholder={idx === 12 ? '★' : ''}
                         title={conf ? `Confiança: ${Math.round(conf)}%` : undefined}
@@ -437,10 +493,14 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           Descartar
                         </button>
                         <button 
+                          disabled={!isValidReady}
                           onClick={saveCard}
-                          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20"
+                          className={cn(
+                            "flex-1 py-3 text-white rounded-lg font-bold flex items-center justify-center gap-2 uppercase tracking-wider transition-colors shadow-lg",
+                            isValidReady ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-slate-700 cursor-not-allowed opacity-50 text-slate-400"
+                          )}
                         >
-                          <CheckCircle2 size={20} /> Confirmar
+                          <CheckCircle2 size={20} /> {isValidReady ? "Confirmar" : "Corrija Erros"}
                         </button>
                       </div>
                       <button 
