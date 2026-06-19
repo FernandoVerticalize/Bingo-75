@@ -26,7 +26,6 @@ type ReviewCard = {
 };
 
 const isValidNumber = (num: number, idx: number) => {
-  if (idx === 12) return true; // Center
   if (!num || num === 0) return false;
   const col = idx % 5;
   if (col === 0 && (num < 1 || num > 15)) return false;
@@ -81,7 +80,6 @@ export function CardScanner({ round }: { round: BingoRound }) {
           let validCount = 0;
           let suspiciousCount = 0;
           for (let j = 0; j < 25; j++) {
-            if (j === 12) continue; // skip free space
             sumConf += confidences[j];
             validCount++;
             if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
@@ -227,7 +225,6 @@ export function CardScanner({ round }: { round: BingoRound }) {
 
   const handleManualEntry = () => {
     const blank = Array(25).fill(0);
-    blank[12] = 0; 
     setReviewQueue([{
         numbers: blank,
         cardNumber: "",
@@ -454,9 +451,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                         max="75"
                         className={cn(
                           "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors",
-                          idx === 12 
-                            ? "bg-slate-700 text-slate-400 text-xs" 
-                            : !valid
+                          !valid
                                ? "bg-red-900/50 text-red-100 border border-red-500 focus:bg-red-900 focus:ring-red-400"
                                : lowConfidence
                                   ? "bg-orange-900/50 text-orange-200 border border-orange-500 focus:bg-orange-900 focus:ring-orange-400"
@@ -472,7 +467,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           const userCorrections = (currentReview.userCorrections || 0) + 1;
                           updateCurrentReview({ numbers: newNums, confidences: newConfs, userCorrections });
                         }}
-                        placeholder={idx === 12 ? '★' : ''}
+                        placeholder={''}
                         title={conf ? `Confiança: ${Math.round(conf)}%` : undefined}
                       />
                     )})}

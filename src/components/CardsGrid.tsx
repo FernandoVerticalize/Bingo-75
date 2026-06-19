@@ -109,7 +109,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                             setEditNumbers(newNums);
                           }}
                           className="w-full aspect-square text-center font-bold text-lg bg-slate-800 text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                          placeholder={idx === 12 ? '★' : ''}
+                          placeholder={''}
                         />
                       ))}
                     </div>
@@ -264,9 +264,8 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
       {/* Grid Cells */}
       <div className="grid grid-cols-5 gap-px bg-slate-700 p-px flex-1">
         {card.numbers.map((num, idx) => {
-          const isFree = num === 0 || (idx === 12 && num === 0);
-          const isMarked = isFree || (num !== null && drawnSet.has(num));
-          const isEmpty = num === null;
+          const isMarked = num !== 0 && num !== null && drawnSet.has(num);
+          const isEmpty = num === null || num === 0;
 
           return (
             <div 
@@ -275,12 +274,10 @@ function BingoGrid({ card, drawnNumbers, fullSize = false }: { card: BingoCard, 
                 "w-full aspect-square flex items-center justify-center transition-colors overflow-hidden",
                 fullSize ? "text-xl font-bold" : "text-[9px] sm:text-[10px] md:text-[11px] lg:text-[12px] font-semibold leading-none",
                 isMarked && !isEmpty ? "bg-emerald-600 text-white shadow-inner" : "bg-[#182132] text-slate-300",
-                isEmpty && "bg-[#182132]", // Just empty dark cell
-                isFree && !isEmpty && "bg-slate-700 text-slate-400"
+                isEmpty && "bg-[#182132]" // Just empty dark cell
               )}
             >
-              {!isEmpty && !isFree ? num : null}
-              {isFree && !isEmpty && (fullSize ? '★' : '★')}
+              {!isEmpty ? num : null}
             </div>
           );
         })}
