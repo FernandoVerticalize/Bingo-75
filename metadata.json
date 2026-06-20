@@ -1,5 +1,5 @@
 {
-  "name": "Bingo Conferidor 75",
+  "name": "Bingo 75",
   "description": "Sistema profissional de varredura automática, painel de sorteio, e detecção de vencedores para o Bingo 75.",
   "requestFramePermissions": [
     "camera"
