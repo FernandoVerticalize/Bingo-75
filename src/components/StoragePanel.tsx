@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Database, Download, Save, Trash2 } from 'lucide-react';
 import { hasSavedData, loadAppSnapshot, saveAppSnapshot, clearAppSnapshot, getSnapshotMeta } from '../storage';
+import { toast } from 'sonner';
 
 export function StoragePanel({ onLoaded }: { onLoaded?: () => void }) {
   const [meta, setMeta] = useState<any>(null);
@@ -16,21 +17,21 @@ export function StoragePanel({ onLoaded }: { onLoaded?: () => void }) {
   const handleSave = async () => {
     await saveAppSnapshot();
     refreshMeta();
-    alert("Dados salvos com sucesso.");
+    toast.success("Dados salvos com sucesso.");
   };
 
   const handleRestore = async () => {
     if (!meta) return;
     await loadAppSnapshot();
     if (onLoaded) onLoaded();
-    alert("Dados restaurados com sucesso.");
+    toast.success("Dados restaurados com sucesso.");
   };
 
   const handleClear = async () => {
     if (confirm("Tem certeza que deseja apagar todos os dados locais?")) {
       await clearAppSnapshot();
       refreshMeta();
-      alert("Dados locais removidos.");
+      toast.info("Dados locais removidos.");
     }
   };
 

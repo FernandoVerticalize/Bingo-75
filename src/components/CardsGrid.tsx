@@ -185,7 +185,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                         }
                       }}
                       disabled={undoHistory.length === 0}
-                      className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors"
+                      className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
                     >
                       <Undo2 size={16} /> Desfazer
                     </button>
@@ -199,7 +199,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                         }
                       }}
                       disabled={redoHistory.length === 0}
-                      className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors"
+                      className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
                     >
                       <Redo2 size={16} /> Refazer
                     </button>
@@ -211,7 +211,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                           setEditNumbers(Array(25).fill(0));
                         }
                       }} 
-                      className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors"
+                      className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
                     >
                       <Eraser size={16} /> Esvaziar
                     </button>
@@ -223,7 +223,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                            setIsEditing(false);
                         }
                       }} 
-                      className="flex-1 py-1 bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors"
+                      className="flex-1 py-3 bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
                     >
                       <Trash2 size={16} /> Excluir
                     </button>

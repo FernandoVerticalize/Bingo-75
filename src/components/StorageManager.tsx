@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { hasSavedData, loadAppSnapshot, saveAppSnapshot, clearAppSnapshot } from '../storage';
 import { Database, Download, Save, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function StorageManager({ 
   onClose,
@@ -28,7 +29,7 @@ export function StorageManager({
     if (!isReady) return;
     
     const interval = setInterval(() => {
-      saveAppSnapshot();
+      saveAppSnapshot().then(() => toast.success("Auto-save executado.", { duration: 1500, position: 'bottom-center' }));
     }, 30000);
     
     return () => clearInterval(interval);
@@ -47,7 +48,7 @@ export function StorageManager({
     setShowPrompt(false);
     setIsReady(true);
     if (onLoaded) onLoaded();
-    alert("Dados restaurados com sucesso.");
+    toast.success("Dados restaurados com sucesso.");
   };
 
   const handleIgnore = () => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
 import { StorageManager } from './components/StorageManager';
 import { StoragePanel } from './components/StoragePanel';
+import { DiagnosticPanel } from './components/DiagnosticPanel';
 import { initAuth } from './lib/sync';
 import { saveAppSnapshot } from './storage';
 import { 
@@ -35,12 +36,32 @@ export default function App() {
   const [callerWidth, setCallerWidth] = useState<number | string>('30%');
   const [callerHeight, setCallerHeight] = useState<number | string>('100%');
   const [isSaving, setIsSaving] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
 
   useEffect(() => {
     initAuth();
+    
+    // Global connection listener
+    const handleOnline = () => {
+       setIsOffline(false);
+       toast.success("Conexão restabelecida. Sincronizando...", { duration: 3000 });
+       setTimeout(() => toast.success("Sincronização concluída."), 1000);
+    };
+    const handleOffline = () => {
+       setIsOffline(true);
+       toast.error("MODO OFFLINE ATIVO. Dados salvos localmente.", { duration: 5000 });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+       window.removeEventListener('online', handleOnline);
+       window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const handleManualSave = async () => {
@@ -64,25 +85,25 @@ export default function App() {
   }, [activeRound?.drawnNumbers?.length]);
 
   return (
-    <div className="min-h-screen bg-[#0f111a] text-slate-100 font-sans flex flex-col">
+    <div className="min-h-[100dvh] bg-[#0f111a] text-slate-100 font-sans flex flex-col">
       <StorageManager onLoaded={() => setActiveTab('BOARD')} />
       {/* Top Navigation Bar */}
-      <nav className="h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 md:px-4 shrink-0 gap-2 md:gap-4">
+      <nav className="h-16 lg:h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 md:px-4 shrink-0 gap-2 md:gap-4 relative z-50">
         {/* Left Elements */}
-        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0 h-full">
           <button 
             onClick={() => setActiveTab('BOARD')}
-            className="flex items-center gap-2 md:gap-4 text-slate-400 hover:text-white transition-colors group"
+            className="flex items-center gap-2 md:gap-4 text-slate-400 hover:text-white transition-colors group p-2 min-h-[48px]"
             title="Início"
           >
-            <Home size={24} className="group-hover:text-emerald-400 transition-colors" />
-            <h1 className="text-lg md:text-xl font-bold tracking-wider hidden md:block group-hover:text-emerald-400 transition-colors">BINGO 75</h1>
+            <Home size={24} className={cn("transition-colors", activeTab === 'BOARD' && "text-blue-400")} />
+            <h1 className="text-lg md:text-xl font-bold tracking-wider hidden md:block group-hover:text-emerald-400 transition-colors">BINGO PRO</h1>
           </button>
 
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 lg:gap-4 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-1.5 px-3 lg:px-4 text-[11px] lg:text-[13px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[140px] lg:min-w-[180px]"
+              className="flex items-center gap-2 lg:gap-4 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-2 px-3 lg:px-4 text-[11px] lg:text-[13px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[140px] lg:min-w-[180px] min-h-[48px] lg:min-h-0"
             >
                <span className="truncate">{activeRound?.name || 'Rodada'}</span>
                <ChevronDown size={14} className="shrink-0" />
@@ -138,19 +159,19 @@ export default function App() {
         <div className="flex-1 flex justify-start items-center px-1 overflow-x-hidden">
             <button 
               onClick={() => setActiveTab('SCANNER')}
-              className="h-8 px-2 md:px-4 bg-[#1e40af] hover:bg-blue-700 text-white rounded font-bold uppercase text-[10px] md:text-[11px] tracking-wider flex items-center justify-center gap-1 md:gap-2 transition-colors whitespace-nowrap shrink-0"
+              className="min-h-[40px] px-3 md:px-4 bg-[#1e40af] hover:bg-blue-700 text-white rounded-lg font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
             >
-              <Camera size={14} className="shrink-0" /> <span className="hidden sm:inline">Importar Cartelas</span><span className="sm:hidden">Importar</span>
+              <Camera size={16} className="shrink-0" /> <span className="hidden sm:inline">Importar Cartelas</span><span className="sm:hidden">Importar</span>
             </button>
         </div>
 
         {/* Right Elements */}
-        <div className="flex items-center gap-3 md:gap-5 shrink-0 text-[9px] lg:text-[11px] uppercase tracking-wider font-semibold text-slate-300 relative z-0">
-          <div className="hidden lg:flex items-center gap-3 lg:gap-4 mr-0 md:mr-2">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-4 shrink-0 text-[10px] lg:text-[11px] uppercase tracking-wider font-semibold text-slate-300 relative z-0">
+          <div className="hidden lg:flex items-center gap-2 mr-2">
              <button 
                onClick={() => useStore.getState().undoDraw()}
                disabled={!activeRound?.drawnNumbers?.length}
-               className="flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50 tracking-wider font-bold"
+               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-3 transition-colors disabled:opacity-50 tracking-wider font-bold"
                title="Desfazer"
              >
                <Undo2 size={16} /> DESFAZER
@@ -159,7 +180,7 @@ export default function App() {
              <button 
                onClick={() => useStore.getState().redoDraw()}
                disabled={!activeRound?.undoneNumbers?.length}
-               className="flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50 tracking-wider font-bold"
+               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-3 transition-colors disabled:opacity-50 tracking-wider font-bold"
                title="Refazer"
              >
                <Redo2 size={16} /> REFAZER
@@ -167,30 +188,30 @@ export default function App() {
           </div>
           <button 
             onClick={() => setActiveTab('STATS')}
-            className={cn("flex items-center gap-1 hover:text-white transition-colors", activeTab === 'STATS' && "text-emerald-400")}
+            className={cn("flex flex-col items-center justify-center h-12 w-12 sm:w-auto sm:h-10 sm:px-3 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'STATS' && "text-emerald-400 bg-slate-800/50")}
           >
-            <BarChart2 size={16} className="hidden md:block" /> ESTATÍSTICAS
+            <BarChart2 size={20} className="sm:w-4 sm:h-4" /> <span className="hidden sm:block">ESTATÍSTICAS</span>
           </button>
           <button 
             onClick={() => setIsHistoryModalOpen(true)}
-            className="flex items-center gap-1 hover:text-white transition-colors"
+            className="flex flex-col items-center justify-center h-12 w-12 sm:w-auto sm:h-10 sm:px-3 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <History size={16} className="hidden md:block" /> HISTÓRICO
+            <History size={20} className="sm:w-4 sm:h-4" /> <span className="hidden sm:block">HISTÓRICO</span>
           </button>
           <button 
             onClick={() => setActiveTab('ADMIN')}
-            className={cn("hover:text-white transition-colors", activeTab === 'ADMIN' && "text-emerald-400")}
+            className={cn("flex items-center justify-center h-12 w-12 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'ADMIN' && "text-emerald-400 bg-slate-800/50")}
             title="Configurações"
           >
-            <Settings size={18} />
+            <Settings size={22} />
           </button>
           <button 
             onClick={handleManualSave}
             disabled={isSaving}
-            className={cn("hover:text-white transition-colors", isSaving && "text-emerald-400 animate-pulse")}
+            className={cn("flex items-center justify-center h-12 w-12 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", isSaving && "text-emerald-400 animate-pulse")}
             title="Salvar Dados Localmente"
           >
-            <Save size={18} />
+            <Save size={22} />
           </button>
         </div>
       </nav>
@@ -529,6 +550,7 @@ export default function App() {
                   </div>
 
                   <StoragePanel onLoaded={() => setActiveTab('BOARD')} />
+                  <DiagnosticPanel />
                 </div>
               </div>
             )}
