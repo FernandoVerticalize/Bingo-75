@@ -14,6 +14,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
   const [undoHistory, setUndoHistory] = useState<number[][]>([]);
   const [redoHistory, setRedoHistory] = useState<number[][]>([]);
   const [editCardName, setEditCardName] = useState("");
+  const [editCardNumber, setEditCardNumber] = useState("");
   const updateCard = useStore(state => state.updateMasterCard);
   const deleteCard = useStore(state => state.deleteMasterCard);
 
@@ -28,12 +29,13 @@ export function CardsGrid({ round }: { round: BingoRound }) {
       setUndoHistory([]);
       setRedoHistory([]);
       setEditCardName(selectedCard.name);
+      setEditCardNumber(selectedCard.cardNumber || "");
     }
   }, [selectedCardId, isEditing]);
 
   const saveEdits = () => {
     if (selectedCardId) {
-      updateCard(selectedCardId, { numbers: editNumbers, name: editCardName });
+      updateCard(selectedCardId, { numbers: editNumbers, name: editCardName, cardNumber: editCardNumber });
     }
     setIsEditing(false);
   };
@@ -70,12 +72,25 @@ export function CardsGrid({ round }: { round: BingoRound }) {
             </button>
             
             {isEditing ? (
-              <input 
-                type="text"
-                value={editCardName}
-                onChange={(e) => setEditCardName(e.target.value)}
-                className="text-xl font-bold text-white mb-6 text-center tracking-wider bg-slate-800 border border-slate-600 rounded px-2 w-full outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              <div className="flex flex-col gap-3 mb-6">
+                <input 
+                  type="text"
+                  value={editCardName}
+                  onChange={(e) => setEditCardName(e.target.value)}
+                  placeholder="Nome da cartela"
+                  className="text-xl font-bold text-white text-center tracking-wider bg-slate-800 border border-slate-600 rounded px-2 py-1 w-full outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <div className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-600 rounded px-3 py-1">
+                  <span className="text-slate-400 font-bold text-sm">Nº:</span>
+                  <input 
+                    type="text"
+                    value={editCardNumber}
+                    onChange={(e) => setEditCardNumber(e.target.value)}
+                    placeholder="Sem número"
+                    className="text-white text-base bg-transparent w-full outline-none"
+                  />
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center gap-3 mb-6">
                 <h3 className="text-xl font-bold text-white text-center tracking-wider">{selectedCard.name}</h3>

@@ -26,6 +26,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'BOARD' | 'SCANNER' | 'STATS' | 'ADMIN'>('BOARD');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCallerBoardOpen, setIsCallerBoardOpen] = useState(false);
+  const [callerWidth, setCallerWidth] = useState<number | string>('30%');
+  const [callerHeight, setCallerHeight] = useState<number | string>('100%');
   const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
@@ -195,8 +197,114 @@ export default function App() {
                 </div>
                 
                 {/* Caller Board Container (Right, Responsive Width) - Desktop */}
-                <div className="hidden lg:block shrink-0 min-h-0 bg-[#0b0c10] h-full max-w-[50vw]">
+                <div 
+                   className="hidden lg:flex shrink-0 min-h-0 bg-[#0b0c10] flex-col relative group"
+                   style={{ 
+                      width: typeof callerWidth === 'number' ? `${callerWidth}px` : callerWidth, 
+                      height: typeof callerHeight === 'number' ? `${callerHeight}px` : callerHeight,
+                      minWidth: '220px',
+                      minHeight: '300px',
+                      maxWidth: '60vw',
+                      maxHeight: '100%'
+                   }}
+                >
                   <CallerBoard round={activeRound} />
+                  
+                  {/* Resize Handle - Horizontal (Left edge) */}
+                  <div 
+                    className="absolute -left-1 top-0 bottom-0 w-3 cursor-col-resize hover:bg-emerald-500/50 group-hover:bg-slate-700/50 transition-colors z-20 flex items-center justify-center"
+                    onMouseDown={(e) => {
+                       e.preventDefault();
+                       const startX = e.clientX;
+                       const container = e.currentTarget.parentElement;
+                       if (!container) return;
+                       const startWidth = container.offsetWidth;
+
+                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const deltaX = startX - moveEvent.clientX; 
+                          let newWidth = startWidth + deltaX;
+                          if (newWidth < 220) newWidth = 220;
+                          setCallerWidth(newWidth);
+                       };
+
+                       const handleMouseUp = () => {
+                         document.removeEventListener('mousemove', handleMouseMove);
+                         document.removeEventListener('mouseup', handleMouseUp);
+                       };
+
+                       document.addEventListener('mousemove', handleMouseMove);
+                       document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  >
+                     <div className="w-[2px] h-8 bg-slate-500/50 group-hover:bg-slate-400 rounded-full" />
+                  </div>
+                  
+                  {/* Resize Handle - Vertical (Bottom edge) */}
+                  <div 
+                    className="absolute left-0 right-0 -bottom-1 h-3 cursor-row-resize hover:bg-emerald-500/50 group-hover:bg-slate-700/50 transition-colors z-20 flex items-center justify-center"
+                    onMouseDown={(e) => {
+                       e.preventDefault();
+                       const startY = e.clientY;
+                       const container = e.currentTarget.parentElement;
+                       if (!container) return;
+                       const startHeight = container.offsetHeight;
+
+                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const deltaY = moveEvent.clientY - startY; 
+                          let newHeight = startHeight + deltaY;
+                          if (newHeight < 300) newHeight = 300;
+                          setCallerHeight(newHeight);
+                       };
+
+                       const handleMouseUp = () => {
+                         document.removeEventListener('mousemove', handleMouseMove);
+                         document.removeEventListener('mouseup', handleMouseUp);
+                       };
+
+                       document.addEventListener('mousemove', handleMouseMove);
+                       document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  >
+                     <div className="h-[2px] w-8 bg-slate-500/50 group-hover:bg-slate-400 rounded-full" />
+                  </div>
+                  
+                  {/* Corner Resize Handle */}
+                  <div 
+                    className="absolute -left-1 -bottom-1 w-5 h-5 cursor-sw-resize z-30 flex items-end justify-start pl-1 pb-1"
+                    onMouseDown={(e) => {
+                       e.preventDefault();
+                       const startX = e.clientX;
+                       const startY = e.clientY;
+                       const container = e.currentTarget.parentElement;
+                       if (!container) return;
+                       const startWidth = container.offsetWidth;
+                       const startHeight = container.offsetHeight;
+
+                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const deltaX = startX - moveEvent.clientX; 
+                          const deltaY = moveEvent.clientY - startY; 
+                          
+                          let newWidth = startWidth + deltaX;
+                          if (newWidth < 220) newWidth = 220;
+                          
+                          let newHeight = startHeight + deltaY;
+                          if (newHeight < 300) newHeight = 300;
+                          
+                          setCallerWidth(newWidth);
+                          setCallerHeight(newHeight);
+                       };
+
+                       const handleMouseUp = () => {
+                         document.removeEventListener('mousemove', handleMouseMove);
+                         document.removeEventListener('mouseup', handleMouseUp);
+                       };
+
+                       document.addEventListener('mousemove', handleMouseMove);
+                       document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  >
+                     <div className="w-3 h-3 bg-slate-500 rounded-tr-full opacity-50 group-hover:bg-emerald-400 group-hover:opacity-100 transition-colors" />
+                  </div>
                 </div>
 
                 {/* Mobile CallerBoard Modal */}

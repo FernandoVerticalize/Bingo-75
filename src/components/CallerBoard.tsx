@@ -23,7 +23,6 @@ export function CallerBoard({ round }: { round: BingoRound }) {
 
   // 'auto' or percentage (50 to 300)
   const [zoomLevel, setZoomLevel] = useState<number | 'auto'>('auto');
-  const [ratioMode, setRatioMode] = useState<'3x3' | '3x2'>('3x3');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -45,33 +44,21 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   const MIN_CELL_WIDTH = 24; 
   const fixedCellWidth = 44; // 100% standard width
 
-  let computedCellWidth = fixedCellWidth;
+  let cellWidth = fixedCellWidth;
+  let cellHeight = fixedCellWidth;
 
-  // Calculate maximum auto-fit cell size
   if (zoomLevel === 'auto') {
     if (containerHeight > 0 && containerWidth > 0) {
-       // Table has 16 rows and 5 columns. Gap is 1px.
-       // height = 16 * cellHeight + 15
-       // width = 5 * cellWidth + 4
-       
-       let maxWByHeight = Math.floor((containerHeight - 15) / 16);
-       if (ratioMode === '3x2') {
-           maxWByHeight = Math.floor(((containerHeight - 15) / 16) * 1.5);
-       }
-       
-       const maxWByWidth = Math.floor((containerWidth - 4) / 5);
-       
-       computedCellWidth = Math.max(MIN_CELL_WIDTH, Math.min(maxWByHeight, maxWByWidth)); 
+       // Fully elastic stretch-to-fit calculation
+       cellWidth = (containerWidth - 6) / 5; // Account for borders and gaps
+       cellHeight = (containerHeight - 17) / 16;
     }
   } else {
-    computedCellWidth = (fixedCellWidth * zoomLevel) / 100;
+    cellWidth = Math.max(MIN_CELL_WIDTH, (fixedCellWidth * zoomLevel) / 100);
+    cellHeight = cellWidth;
   }
 
-  if (computedCellWidth < MIN_CELL_WIDTH) computedCellWidth = MIN_CELL_WIDTH;
-
-  const computedCellHeight = ratioMode === '3x3' ? computedCellWidth : Math.floor(computedCellWidth * (2/3));
-
-  const currentZoomPercent = zoomLevel === 'auto' ? Math.round((computedCellWidth / fixedCellWidth) * 100) : zoomLevel;
+  const currentZoomPercent = zoomLevel === 'auto' ? Math.round((cellWidth / fixedCellWidth) * 100) : zoomLevel;
 
   const handleZoomOut = () => {
      if (currentZoomPercent > 50) setZoomLevel(Math.max(50, currentZoomPercent - 25));
@@ -84,10 +71,10 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   const handleZoomReset = () => setZoomLevel(100);
   const handleZoomAuto = () => setZoomLevel('auto');
   
-  const tableWidth = (computedCellWidth * 5) + 4; // 5 cols + 4 gaps
+  const tableWidth = (cellWidth * 5) + 4; // 5 cols + 4 gaps
 
   return (
-    <div className="w-full h-full bg-[#121826] rounded-lg border border-slate-700 flex flex-col font-sans overflow-hidden shadow-xl lg:max-w-full" style={{ width: zoomLevel === 'auto' && tableWidth > 0 ? tableWidth + 2 : '100%' }}>
+    <div className="w-full h-full bg-[#121826] rounded-lg border border-slate-700 flex flex-col font-sans overflow-hidden shadow-xl lg:max-w-full">
       {/* Header and Controls */}
       <div className="bg-[#1e40af] text-white flex flex-col pt-2 pb-2 shrink-0 border-b border-slate-700">
         <div className="flex justify-between items-center px-4 mb-2">
@@ -148,26 +135,20 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
            </div>
-           
-           <div className="flex justify-center">
-              <button 
-                onClick={() => setRatioMode(m => m === '3x3' ? '3x2' : '3x3')}
-                className="px-2 h-7 bg-black/20 hover:bg-black/40 rounded flex items-center gap-1.5 text-[11px] font-bold transition-colors border border-transparent whitespace-nowrap"
-              >
-                📐 Proporção: {ratioMode === '3x3' ? '3×3' : '3×2'}
-              </button>
-           </div>
         </div>
       </div>
       
       {/* Scrollable Container */}
       <div 
-         className="flex-1 overflow-auto bg-[#121826] flex justify-center" 
+         className={cn("flex-1 overflow-auto bg-[#121826] flex", zoomLevel === 'auto' ? "justify-stretch items-stretch" : "justify-center")} 
          ref={containerRef}
       >
          <div 
-            className="grid grid-cols-5 gap-px bg-slate-700 m-auto shrink-0 border-x border-slate-700"
-            style={{ width: tableWidth, alignSelf: 'flex-start' }}
+            className={cn(
+               "grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700",
+               zoomLevel === 'auto' ? "w-full h-full" : "m-auto border-x"
+            )}
+            style={zoomLevel === 'auto' ? { gridTemplateRows: 'repeat(16, minmax(0, 1fr))' } : { width: tableWidth, alignSelf: 'flex-start' }}
          >
              {/* Header row */}
             {columns.map(col => (
@@ -175,9 +156,9 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                  key={col.letter} 
                  className="bg-black text-white font-bold flex items-center justify-center pointer-events-none"
                  translate="no"
-                 style={{ height: computedCellHeight }}
+                 style={{ height: zoomLevel === 'auto' ? '100%' : cellHeight }}
                >
-                  <span style={{ fontSize: Math.max(10, computedCellHeight * 0.45) }}>{col.letter}</span>
+                  <span style={{ fontSize: Math.max(10, Math.min(cellWidth, cellHeight) * 0.45) }}>{col.letter}</span>
                </div>
             ))}
             
@@ -203,8 +184,8 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                                 : "bg-[#0b1220] text-white hover:bg-slate-700"
                         )}
                         style={{ 
-                            height: computedCellHeight,
-                            fontSize: Math.max(11, computedCellHeight * 0.42) 
+                            height: zoomLevel === 'auto' ? '100%' : cellHeight,
+                            fontSize: Math.max(11, Math.min(cellWidth, cellHeight) * 0.42) 
                         }}
                       >
                         {num}
