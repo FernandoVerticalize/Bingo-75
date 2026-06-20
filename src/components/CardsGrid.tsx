@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { BingoRound, BingoCard } from '../types';
 import { cn } from '../lib/utils';
-import { X, Trophy, Edit2, Save, Trash2, Eraser, Undo2, Redo2 } from 'lucide-react';
+import { X, Trophy, Edit2, Save, Trash2, Eraser, Undo2, Redo2, Copy } from 'lucide-react';
 import { useStore, getRoundCards, computeCardState } from '../store';
 
 export function CardsGrid({ round }: { round: BingoRound }) {
@@ -18,6 +18,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
   const [showRanking, setShowRanking] = useState(false);
   const updateCard = useStore(state => state.updateMasterCard);
   const deleteCard = useStore(state => state.deleteMasterCard);
+  const addCard = useStore(state => state.addMasterCard);
 
   const displayCards = cards;
 
@@ -127,11 +128,42 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center gap-3 mb-6">
-                <h3 className="text-xl font-bold text-white text-center tracking-wider">{selectedCard.name}</h3>
-                <button onClick={() => setIsEditing(true)} className="text-slate-400 hover:text-white" title="Editar cartela">
-                  <Edit2 size={16} />
-                </button>
+              <div className="flex flex-col gap-4 mb-6">
+                 <div className="flex items-center justify-center gap-3">
+                   <h3 className="text-xl font-bold text-white text-center tracking-wider">{selectedCard.name}</h3>
+                   {selectedCard.cardNumber && (
+                     <span className="bg-slate-800 text-slate-300 text-xs px-2 py-0.5 rounded font-bold">Nº {selectedCard.cardNumber}</span>
+                   )}
+                 </div>
+                 <div className="flex items-center justify-center gap-4">
+                   <button onClick={() => setIsEditing(true)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-bold text-xs uppercase" title="Editar cartela">
+                     <Edit2 size={14} /> Editar
+                   </button>
+                   <button 
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja duplicar esta cartela?')) {
+                           addCard({
+                             name: `${selectedCard.name} (Cópia)`,
+                             cardNumber: selectedCard.cardNumber,
+                             numbers: [...selectedCard.numbers]
+                           });
+                           setSelectedCardId(null);
+                        }
+                      }} 
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-900 shadow-inner shadow-blue-500/20 hover:bg-blue-800 text-white rounded font-bold text-xs uppercase" title="Duplicar">
+                     <Copy size={14} /> Duplicar
+                   </button>
+                   <button 
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja excluir completamente esta cartela?')) {
+                           deleteCard(selectedCard.id);
+                           setSelectedCardId(null);
+                        }
+                      }} 
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-red-900/50 hover:bg-red-800 text-white rounded font-bold text-xs uppercase" title="Excluir">
+                     <Trash2 size={14} /> Excluir
+                   </button>
+                 </div>
               </div>
             )}
             
@@ -214,6 +246,22 @@ export function CardsGrid({ round }: { round: BingoRound }) {
                       className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
                     >
                       <Eraser size={16} /> Esvaziar
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja duplicar esta cartela?')) {
+                           addCard({
+                             name: `${editCardName || selectedCard.name} (Cópia)`,
+                             cardNumber: editCardNumber || selectedCard.cardNumber,
+                             numbers: [...editNumbers]
+                           });
+                           setIsEditing(false);
+                           setSelectedCardId(null);
+                        }
+                      }} 
+                      className="flex-1 py-3 bg-blue-800 hover:bg-blue-700 text-white rounded-lg font-bold flex flex-col items-center justify-center gap-1 text-[10px] uppercase transition-colors min-h-[48px]"
+                    >
+                      <Copy size={16} /> Duplicar
                     </button>
                     <button 
                       onClick={() => {
