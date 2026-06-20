@@ -20,6 +20,7 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, num: number | null}>({ isOpen: false, num: null });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -51,6 +52,26 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   }
 
   const tableWidth = (cellWidth * 5) + 4; // 5 cols + 4 gaps
+
+  const handleNumberClick = (num: number) => {
+    const isDrawn = drawnSet.has(num);
+    const isLast = num === lastDrawnNumber;
+    
+    if (!isDrawn) {
+      toggleDrawnNumber(num);
+    } else if (isLast) {
+      toggleDrawnNumber(num); // Remove immediately if it's the last one
+    } else {
+      setConfirmModal({ isOpen: true, num }); // Request confirmation for consolidated numbers
+    }
+  };
+
+  const confirmRemoval = () => {
+    if (confirmModal.num !== null) {
+      toggleDrawnNumber(confirmModal.num);
+    }
+    setConfirmModal({ isOpen: false, num: null });
+  };
 
   return (
     <div className="w-full h-full bg-[#121826] rounded-lg border border-slate-700 flex flex-col font-sans overflow-hidden shadow-xl lg:max-w-full">
@@ -100,16 +121,23 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                     const num = col.offset + rowIndex + 1;
                     const isDrawn = drawnSet.has(num);
                     const isLast = num === lastDrawnNumber;
+                    
+                    const titleText = isLast 
+                        ? "Último número sorteado. Clique para corrigir."
+                        : isDrawn 
+                            ? "Número consolidado. Será solicitada confirmação."
+                            : `Número ${num} não sorteado`;
 
                     return (
                       <button
                         key={num}
-                        onClick={() => toggleDrawnNumber(num)}
+                        onClick={() => handleNumberClick(num)}
+                        title={titleText}
                         className={cn(
                           "w-full h-full flex items-center justify-center font-medium transition-all outline-none",
-                          "hover:brightness-110 active:scale-95 touch-manipulation",
+                          "hover:brightness-110 active:scale-95 touch-manipulation relative group",
                           isLast 
-                             ? "bg-yellow-400 text-black border-2 border-yellow-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] z-10 font-bold relative"
+                             ? "bg-emerald-500 text-white border-2 border-yellow-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_8px_rgba(250,204,21,0.5)] z-10 font-bold"
                              : isDrawn 
                                 ? "bg-emerald-600 text-white font-bold" 
                                 : "bg-[#0b1220] text-white hover:bg-slate-700"
@@ -127,6 +155,37 @@ export function CallerBoard({ round }: { round: BingoRound }) {
             ))}
          </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && confirmModal.num !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1a2035] border border-slate-700 rounded-xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4 border border-red-500/30">
+               <span className="text-3xl font-black text-red-400">{confirmModal.num}</span>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wide">Tem Certeza?</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              Este número foi sorteado anteriormente e já está <strong className="text-white">consolidado</strong> na sequência do bingo.
+              <br/><br/>
+              A remoção poderá alterar a ordem e o histórico da partida.
+            </p>
+            <div className="flex w-full gap-3">
+               <button 
+                 onClick={() => setConfirmModal({ isOpen: false, num: null })}
+                 className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white shadow-lg shadow-black/20 rounded-lg font-bold text-xs sm:text-sm transition-colors"
+               >
+                 CANCELAR
+               </button>
+               <button 
+                 onClick={confirmRemoval}
+                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white rounded-lg font-bold text-xs sm:text-sm transition-colors shadow-lg shadow-red-900/50"
+               >
+                 CONFIRMAR REMOÇÃO
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
