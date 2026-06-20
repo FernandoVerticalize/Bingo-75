@@ -21,9 +21,6 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   const [containerHeight, setContainerHeight] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // 'auto' or percentage (50 to 300)
-  const [zoomLevel, setZoomLevel] = useState<number | 'auto'>('auto');
-
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -47,37 +44,19 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   let cellWidth = fixedCellWidth;
   let cellHeight = fixedCellWidth;
 
-  if (zoomLevel === 'auto') {
-    if (containerHeight > 0 && containerWidth > 0) {
-       // Fully elastic stretch-to-fit calculation
-       cellWidth = (containerWidth - 6) / 5; // Account for borders and gaps
-       cellHeight = (containerHeight - 17) / 16;
-    }
-  } else {
-    cellWidth = Math.max(MIN_CELL_WIDTH, (fixedCellWidth * zoomLevel) / 100);
-    cellHeight = cellWidth;
+  if (containerHeight > 0 && containerWidth > 0) {
+     // Fully elastic stretch-to-fit calculation
+     cellWidth = (containerWidth - 6) / 5; // Account for borders and gaps
+     cellHeight = (containerHeight - 17) / 16;
   }
 
-  const currentZoomPercent = zoomLevel === 'auto' ? Math.round((cellWidth / fixedCellWidth) * 100) : zoomLevel;
-
-  const handleZoomOut = () => {
-     if (currentZoomPercent > 50) setZoomLevel(Math.max(50, currentZoomPercent - 25));
-  };
-
-  const handleZoomIn = () => {
-     if (currentZoomPercent < 300) setZoomLevel(Math.min(300, currentZoomPercent + 25));
-  };
-
-  const handleZoomReset = () => setZoomLevel(100);
-  const handleZoomAuto = () => setZoomLevel('auto');
-  
   const tableWidth = (cellWidth * 5) + 4; // 5 cols + 4 gaps
 
   return (
     <div className="w-full h-full bg-[#121826] rounded-lg border border-slate-700 flex flex-col font-sans overflow-hidden shadow-xl lg:max-w-full">
       {/* Header and Controls */}
-      <div className="bg-[#1e40af] text-white flex flex-col pt-2 pb-2 shrink-0 border-b border-slate-700">
-        <div className="flex justify-between items-center px-4 mb-2">
+      <div className="bg-[#1e40af] text-white flex flex-col shrink-0 border-b border-slate-700 overflow-hidden relative">
+        <div className="flex justify-between items-center px-3 py-1.5 w-full">
            <span className="text-sm font-bold uppercase tracking-wider">Números Possíveis</span>
            <button 
              onClick={() => {
@@ -86,69 +65,21 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                 }
              }}
              title="Zerar Tudo"
-             className="text-white/70 hover:text-red-400 transition-colors"
+             className="text-white/70 hover:text-red-400 transition-colors p-1"
            >
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
            </button>
-        </div>
-        
-        {/* Controls Area */}
-        <div className="flex flex-col gap-2 px-2">
-           <div className="flex items-center justify-center gap-1.5">
-              <button 
-                onClick={handleZoomOut} 
-                title="Reduzir (➖)" 
-                className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
-                disabled={currentZoomPercent <= 50}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-
-              <button 
-                onClick={handleZoomReset} 
-                title="Zoom Padrão (100%)" 
-                className={cn(
-                  "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
-                  zoomLevel === 100 ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
-                )}
-              >
-                <Search size={12} strokeWidth={3} /> 100%
-              </button>
-
-              <button 
-                onClick={handleZoomAuto} 
-                title="Ajustar à Tela" 
-                className={cn(
-                  "px-2 h-7 text-[11px] font-bold rounded flex items-center gap-1.5 transition-colors border",
-                  zoomLevel === 'auto' ? "bg-emerald-600 text-white border-emerald-400" : "bg-black/20 hover:bg-black/40 text-white/90 border-transparent"
-                )}
-              >
-                <Monitor size={12} strokeWidth={3} /> AJUSTAR
-              </button>
-
-              <button 
-                onClick={handleZoomIn} 
-                title="Ampliar (➕)" 
-                className="p-1.5 rounded bg-black/20 hover:bg-black/40 text-white transition-colors flex items-center justify-center disabled:opacity-50"
-                disabled={currentZoomPercent >= 300}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-           </div>
         </div>
       </div>
       
       {/* Scrollable Container */}
       <div 
-         className={cn("flex-1 overflow-auto bg-[#121826] flex", zoomLevel === 'auto' ? "justify-stretch items-stretch" : "justify-center")} 
+         className="flex-1 overflow-auto bg-[#121826] flex justify-stretch items-stretch" 
          ref={containerRef}
       >
          <div 
-            className={cn(
-               "grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700",
-               zoomLevel === 'auto' ? "w-full h-full" : "m-auto border-x"
-            )}
-            style={zoomLevel === 'auto' ? { gridTemplateRows: 'repeat(16, minmax(0, 1fr))' } : { width: tableWidth, alignSelf: 'flex-start' }}
+            className="grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700 w-full h-full"
+            style={{ gridTemplateRows: 'repeat(16, minmax(0, 1fr))' }}
          >
              {/* Header row */}
             {columns.map(col => (
@@ -156,7 +87,7 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                  key={col.letter} 
                  className="bg-black text-white font-bold flex items-center justify-center pointer-events-none"
                  translate="no"
-                 style={{ height: zoomLevel === 'auto' ? '100%' : cellHeight }}
+                 style={{ height: '100%' }}
                >
                   <span style={{ fontSize: Math.max(10, Math.min(cellWidth, cellHeight) * 0.45) }}>{col.letter}</span>
                </div>
@@ -184,7 +115,7 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                                 : "bg-[#0b1220] text-white hover:bg-slate-700"
                         )}
                         style={{ 
-                            height: zoomLevel === 'auto' ? '100%' : cellHeight,
+                            height: '100%',
                             fontSize: Math.max(11, Math.min(cellWidth, cellHeight) * 0.42) 
                         }}
                       >
