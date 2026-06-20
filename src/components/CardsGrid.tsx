@@ -15,6 +15,7 @@ export function CardsGrid({ round }: { round: BingoRound }) {
   const [redoHistory, setRedoHistory] = useState<number[][]>([]);
   const [editCardName, setEditCardName] = useState("");
   const [editCardNumber, setEditCardNumber] = useState("");
+  const [showRanking, setShowRanking] = useState(false);
   const updateCard = useStore(state => state.updateMasterCard);
   const deleteCard = useStore(state => state.deleteMasterCard);
 
@@ -47,27 +48,34 @@ export function CardsGrid({ round }: { round: BingoRound }) {
       <div className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col px-1 sm:px-2 pt-0 pb-2 bg-[#0b0c10]">
          {/* Live Ranking Bar */}
          {top5.length > 0 && round.drawnNumbers.length > 0 && (
-            <div className="flex flex-col gap-1.5 mb-3 bg-[#12141c] p-2 rounded-lg border border-slate-800 shrink-0 sticky top-0 z-20 shadow-md">
-               <h3 className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-widest pl-1 flex items-center gap-1.5">
-                  <Trophy size={14} /> Ranking em Tempo Real
-               </h3>
-               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide shrink-0 items-stretch">
-                  {top5.map((c, i) => {
-                     let faltam = 25 - c.markedCount;
-                     return (
-                     <div key={c.id} className="bg-black/30 border border-slate-700/50 rounded p-1.5 px-2.5 min-w-[110px] flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-0.5">
-                           <span className={cn("font-bold text-[10px] sm:text-[11px] truncate pr-2 max-w-[80px]", i === 0 ? "text-yellow-400" : "text-white")}>
-                              {i+1}º {c.name}
-                           </span>
-                           <span className="text-[9px] text-slate-500 font-mono">{Math.round((c.markedCount/25)*100)}%</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                           Falta{faltam === 1 ? '' : 'm'} <span className="font-bold text-white">{faltam}</span> n°s
-                        </div>
-                     </div>
-                  )})}
-               </div>
+            <div className="flex flex-col gap-1.5 mb-3 shrink-0 sticky top-0 z-20 mt-1">
+               <button 
+                  onClick={() => setShowRanking(!showRanking)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#12141c] hover:bg-[#1a1c26] border border-slate-800 rounded-lg text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-widest shadow-md transition-colors w-max"
+               >
+                  <Trophy size={14} /> 
+                  {showRanking ? 'Ocultar Ranking' : 'Ranking em Tempo Real'}
+               </button>
+               
+               {showRanking && (
+                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide items-stretch bg-[#12141c] p-2 rounded-lg border border-slate-800 shadow-md">
+                    {top5.map((c, i) => {
+                       let faltam = 25 - c.markedCount;
+                       return (
+                       <div key={c.id} className="bg-black/30 border border-slate-700/50 rounded p-1.5 px-2.5 min-w-[110px] flex flex-col justify-center">
+                          <div className="flex items-center justify-between mb-0.5">
+                             <span className={cn("font-bold text-[10px] sm:text-[11px] truncate pr-2 max-w-[80px]", i === 0 ? "text-yellow-400" : "text-white")}>
+                                {i+1}º {c.name}
+                             </span>
+                             <span className="text-[9px] text-slate-500 font-mono">{Math.round((c.markedCount/25)*100)}%</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                             Falta{faltam === 1 ? '' : 'm'} <span className="font-bold text-white">{faltam}</span> n°s
+                          </div>
+                       </div>
+                    )})}
+                 </div>
+               )}
             </div>
          )}
         <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 w-full content-start rounded-xl mx-auto">
@@ -265,14 +273,16 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
   const getWinnerBorder = () => {
      if (currentHighlight === 'FULL') return "border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)] ring-2 ring-yellow-400";
      if (currentHighlight === 'LINE_AND_COLUMN') return "border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)] ring-2 ring-orange-500/50";
-     if (currentHighlight === 'LINE' || currentHighlight === 'COLUMN') return "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/50";
+     if (currentHighlight === 'COLUMN') return "border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)] ring-2 ring-yellow-500/50";
+     if (currentHighlight === 'LINE') return "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/50";
      return "border-[#1e293b]";
   };
 
   const getWinnerBg = () => {
      if (currentHighlight === 'FULL') return "bg-yellow-500 text-black";
      if (currentHighlight === 'LINE_AND_COLUMN') return "bg-orange-600 text-white";
-     if (currentHighlight === 'LINE' || currentHighlight === 'COLUMN') return "bg-emerald-600 text-white";
+     if (currentHighlight === 'COLUMN') return "bg-yellow-600 text-white";
+     if (currentHighlight === 'LINE') return "bg-emerald-600 text-white";
      return "bg-[#1e40af] text-white";
   };
 
@@ -286,7 +296,10 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
       )}
     >
       {currentHighlight && currentHighlight !== 'FULL' && (
-         <div className="absolute inset-0 ring-4 ring-emerald-500/20 animate-pulse pointer-events-none z-10" />
+         <div className={cn("absolute inset-0 ring-4 animate-pulse pointer-events-none z-10",
+            currentHighlight === 'COLUMN' ? "ring-yellow-500/20" :
+            currentHighlight === 'LINE_AND_COLUMN' ? "ring-orange-500/20" : "ring-emerald-500/20"
+         )} />
       )}
       {currentHighlight === 'FULL' && (
          <div className="absolute inset-0 ring-4 ring-yellow-400/30 animate-pulse pointer-events-none z-10" />
