@@ -212,7 +212,7 @@ export default function App() {
                   
                   {/* Resize Handle - Horizontal (Left edge) */}
                   <div 
-                    className="absolute -left-1 top-0 bottom-0 w-3 cursor-col-resize hover:bg-emerald-500/50 group-hover:bg-slate-700/50 transition-colors z-20 flex items-center justify-center"
+                    className="absolute -left-3 top-0 bottom-0 w-6 cursor-col-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle"
                     onMouseDown={(e) => {
                        e.preventDefault();
                        const startX = e.clientX;
@@ -236,12 +236,12 @@ export default function App() {
                        document.addEventListener('mouseup', handleMouseUp);
                     }}
                   >
-                     <div className="w-[2px] h-8 bg-slate-500/50 group-hover:bg-slate-400 rounded-full" />
+                     <div className="w-[3px] h-12 bg-slate-500/30 group-hover/handle:bg-slate-400 group-hover/handle:shadow-[0_0_8px_rgba(5,150,105,0.8)] rounded-full transition-all" />
                   </div>
                   
                   {/* Resize Handle - Vertical (Bottom edge) */}
                   <div 
-                    className="absolute left-0 right-0 -bottom-1 h-3 cursor-row-resize hover:bg-emerald-500/50 group-hover:bg-slate-700/50 transition-colors z-20 flex items-center justify-center"
+                    className="absolute left-0 right-0 -bottom-3 h-6 cursor-row-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle"
                     onMouseDown={(e) => {
                        e.preventDefault();
                        const startY = e.clientY;
@@ -265,12 +265,12 @@ export default function App() {
                        document.addEventListener('mouseup', handleMouseUp);
                     }}
                   >
-                     <div className="h-[2px] w-8 bg-slate-500/50 group-hover:bg-slate-400 rounded-full" />
+                     <div className="h-[3px] w-12 bg-slate-500/30 group-hover/handle:bg-slate-400 group-hover/handle:shadow-[0_0_8px_rgba(5,150,105,0.8)] rounded-full transition-all" />
                   </div>
                   
                   {/* Corner Resize Handle */}
                   <div 
-                    className="absolute -left-1 -bottom-1 w-5 h-5 cursor-sw-resize z-30 flex items-end justify-start pl-1 pb-1"
+                    className="absolute -left-4 -bottom-4 w-8 h-8 cursor-sw-resize z-30 flex items-end justify-start pl-2 pb-2 group/corner"
                     onMouseDown={(e) => {
                        e.preventDefault();
                        const startX = e.clientX;
@@ -303,7 +303,9 @@ export default function App() {
                        document.addEventListener('mouseup', handleMouseUp);
                     }}
                   >
-                     <div className="w-3 h-3 bg-slate-500 rounded-tr-full opacity-50 group-hover:bg-emerald-400 group-hover:opacity-100 transition-colors" />
+                     <div className="w-4 h-4 bg-slate-500/40 rounded-bl-sm rounded-tr-full group-hover/corner:bg-slate-400 group-hover/corner:shadow-[0_0_12px_rgba(5,150,105,1)] transition-all flex items-end justify-start p-1">
+                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                     </div>
                   </div>
                 </div>
 
