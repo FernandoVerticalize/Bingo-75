@@ -88,24 +88,25 @@ export default function App() {
     <div className="min-h-[100dvh] bg-[#0f111a] text-slate-100 font-sans flex flex-col">
       <StorageManager onLoaded={() => setActiveTab('BOARD')} />
       {/* Top Navigation Bar */}
-      <nav className="h-16 lg:h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 md:px-4 shrink-0 gap-2 md:gap-4 relative z-50">
+      <nav className="h-16 lg:h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 shrink-0 gap-1 md:gap-2 relative z-50">
         {/* Left Elements */}
-        <div className="flex items-center gap-2 md:gap-4 shrink-0 h-full">
+        <div className="flex items-center gap-1 md:gap-2 shrink-0 h-full">
           <button 
             onClick={() => setActiveTab('BOARD')}
-            className="flex items-center gap-2 md:gap-4 text-slate-400 hover:text-white transition-colors group p-2 min-h-[48px]"
+            className="flex items-center gap-1 md:gap-2 text-slate-400 hover:text-white transition-colors group p-2 min-h-[48px]"
             title="Início"
           >
             <Home size={24} className={cn("transition-colors", activeTab === 'BOARD' && "text-blue-400")} />
-            <h1 className="text-lg md:text-xl font-bold tracking-wider hidden md:block group-hover:text-emerald-400 transition-colors">BINGO PRO</h1>
+            <h1 className="text-lg md:text-xl font-bold tracking-wider hidden lg:block group-hover:text-emerald-400 transition-colors">BINGO PRO</h1>
           </button>
 
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 lg:gap-4 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-2 px-3 lg:px-4 text-[11px] lg:text-[13px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[140px] lg:min-w-[180px] min-h-[48px] lg:min-h-0"
+              className="flex items-center gap-1 sm:gap-2 bg-transparent hover:bg-slate-800 border border-slate-700 text-white font-bold rounded-lg py-2 px-2 sm:px-3 text-[11px] lg:text-[12px] outline-none transition-colors justify-between uppercase tracking-wider min-w-[70px] sm:min-w-[110px] min-h-[48px] lg:min-h-0"
             >
-               <span className="truncate">{activeRound?.name || 'Rodada'}</span>
+               <span className="truncate hidden sm:inline">{activeRound?.name || 'Rodada'}</span>
+               <span className="truncate sm:hidden">{activeRound?.name?.replace(/rodada/i, 'R') || 'R'}</span>
                <ChevronDown size={14} className="shrink-0" />
             </button>
             
@@ -156,62 +157,64 @@ export default function App() {
         </div>
 
         {/* Center - Action Buttons */}
-        <div className="flex-1 flex justify-start items-center px-1 overflow-x-hidden">
+        <div className="flex shrink-0 justify-start items-center px-1">
             <button 
               onClick={() => setActiveTab('SCANNER')}
-              className="min-h-[40px] px-3 md:px-4 bg-[#1e40af] hover:bg-blue-700 text-white rounded-lg font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
+              className="min-h-[40px] h-10 px-2 sm:px-3 md:px-4 bg-[#1e40af] hover:bg-blue-700 text-white rounded-lg font-bold uppercase text-[10px] sm:text-[11px] tracking-wider flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
             >
-              <Camera size={16} className="shrink-0" /> <span className="hidden sm:inline">Importar Cartelas</span><span className="sm:hidden">Importar</span>
+              <Camera size={16} className="shrink-0" /> <span>Importar Cartelas</span>
             </button>
         </div>
 
         {/* Right Elements */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-4 shrink-0 text-[10px] lg:text-[11px] uppercase tracking-wider font-semibold text-slate-300 relative z-0">
-          <div className="hidden lg:flex items-center gap-2 mr-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 text-[10px] lg:text-[11px] uppercase tracking-wider font-semibold text-slate-300 relative z-0">
+          <div className="hidden lg:flex items-center gap-1 mr-1">
              <button 
                onClick={() => useStore.getState().undoDraw()}
                disabled={!activeRound?.drawnNumbers?.length}
-               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-3 transition-colors disabled:opacity-50 tracking-wider font-bold"
+               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-2 transition-colors disabled:opacity-50 tracking-wider font-bold"
                title="Desfazer"
              >
-               <Undo2 size={16} /> DESFAZER
+               <Undo2 size={16} /> <span className="hidden xl:inline">DESFAZER</span>
              </button>
              
              <button 
                onClick={() => useStore.getState().redoDraw()}
                disabled={!activeRound?.undoneNumbers?.length}
-               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-3 transition-colors disabled:opacity-50 tracking-wider font-bold"
+               className="flex items-center justify-center gap-1 hover:text-white hover:bg-slate-800 rounded-lg h-10 px-2 transition-colors disabled:opacity-50 tracking-wider font-bold"
                title="Refazer"
              >
-               <Redo2 size={16} /> REFAZER
+               <Redo2 size={16} /> <span className="hidden xl:inline">REFAZER</span>
              </button>
           </div>
           <button 
             onClick={() => setActiveTab('STATS')}
-            className={cn("flex flex-col items-center justify-center h-12 w-12 sm:w-auto sm:h-10 sm:px-3 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'STATS' && "text-emerald-400 bg-slate-800/50")}
+            className={cn("flex flex-col items-center justify-center h-10 w-10 sm:w-auto sm:h-10 sm:px-2 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'STATS' && "text-emerald-400 bg-slate-800/50")}
+            title="Estatísticas"
           >
-            <BarChart2 size={20} className="sm:w-4 sm:h-4" /> <span className="hidden sm:block">ESTATÍSTICAS</span>
+            <BarChart2 size={18} className="sm:w-4 sm:h-4" /> <span className="hidden xl:block">Estatísticas</span>
           </button>
           <button 
             onClick={() => setIsHistoryModalOpen(true)}
-            className="flex flex-col items-center justify-center h-12 w-12 sm:w-auto sm:h-10 sm:px-3 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="flex flex-col items-center justify-center h-10 w-10 sm:w-auto sm:h-10 sm:px-2 sm:flex-row gap-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            title="Histórico"
           >
-            <History size={20} className="sm:w-4 sm:h-4" /> <span className="hidden sm:block">HISTÓRICO</span>
+            <History size={18} className="sm:w-4 sm:h-4" /> <span className="hidden xl:block">Histórico</span>
           </button>
           <button 
             onClick={() => setActiveTab('ADMIN')}
-            className={cn("flex items-center justify-center h-12 w-12 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'ADMIN' && "text-emerald-400 bg-slate-800/50")}
+            className={cn("flex items-center justify-center h-10 w-10 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", activeTab === 'ADMIN' && "text-emerald-400 bg-slate-800/50")}
             title="Configurações"
           >
-            <Settings size={22} />
+            <Settings size={20} />
           </button>
           <button 
             onClick={handleManualSave}
             disabled={isSaving}
-            className={cn("flex items-center justify-center h-12 w-12 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", isSaving && "text-emerald-400 animate-pulse")}
+            className={cn("flex items-center justify-center h-10 w-10 hover:text-white hover:bg-slate-800 rounded-lg transition-colors", isSaving && "text-emerald-400 animate-pulse")}
             title="Salvar Dados Localmente"
           >
-            <Save size={22} />
+            <Save size={20} />
           </button>
         </div>
       </nav>

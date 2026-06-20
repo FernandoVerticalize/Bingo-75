@@ -282,7 +282,7 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
      if (currentHighlight === 'FULL') return "bg-yellow-500 text-black";
      if (currentHighlight === 'LINE_AND_COLUMN') return "bg-orange-600 text-white";
      if (currentHighlight === 'COLUMN') return "bg-yellow-600 text-white";
-     if (currentHighlight === 'LINE') return "bg-yellow-600 text-white";
+     if (currentHighlight === 'LINE') return "bg-emerald-600 text-white";
      return "bg-[#1e40af] text-white";
   };
 
