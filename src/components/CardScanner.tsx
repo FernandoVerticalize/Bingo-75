@@ -67,40 +67,67 @@ export function CardScanner({ round }: { round: BingoRound }) {
         
         const startTime = performance.now();
         try {
-          setProgressMsg(`Detectando grade da cartela ${i + 1} (OpenCV.js)...`);
-          const cellsBase64 = await extractBingoGrid(base64Image);
+          setProgressMsg(`Enviando imagem ${i + 1} para o Gemini...`);
           
-          setProgressMsg(`Lendo números célula a célula (Tesseract OCR local)...`);
-          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(cellsBase64, (prog) => {
-             setProgressMsg(`Lendo números da cartela ${i + 1} (${Math.round(prog * 100)}%)...`);
+          const response = await fetch("/api/scan-bingo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ images: [base64Image] }),
           });
 
+          if (!response.ok) {
+            throw new Error(`Erro do servidor: ${response.statusText}`);
+          }
+
+          const data = await response.json();
           const timeTakenSeconds = Math.round((performance.now() - startTime) / 1000);
 
-          let sumConf = 0;
-          let validCount = 0;
-          let suspiciousCount = 0;
-          for (let j = 0; j < 25; j++) {
-            sumConf += confidences[j];
-            validCount++;
-            if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
-              suspiciousCount++;
-            }
+          if (!data.success || !data.cards || data.cards.length === 0) {
+            throw new Error(data.error || "Nenhuma cartela identificada.");
           }
-          const avgConfidence = validCount > 0 ? (sumConf / validCount) : 0;
 
-          results.push({
-            image: base64Image,
-            numbers: numbers,
-            confidences: confidences,
-            cardNumber: "", 
-            name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            timeTaken: timeTakenSeconds,
-            avgConfidence: avgConfidence,
-            suspiciousCount: suspiciousCount,
-            autoCorrected: autoCorrectedCount,
-            userCorrections: 0
-          });
+          for (const card of data.cards) {
+            // Reconstruct 25 numbers array from {row, column, value, confidence}
+            // Sort by row, then col. Or just map directly: index = (row-1)*5 + (col-1)
+            const numbers = Array(25).fill(0);
+            const confidences = Array(25).fill(0);
+            
+            card.numbers.forEach((cell: any) => {
+               const r = cell.row - 1;
+               const c = cell.column - 1;
+               if (r >= 0 && r < 5 && c >= 0 && c < 5) {
+                  const idx = r * 5 + c;
+                  numbers[idx] = cell.value || 0;
+                  confidences[idx] = (cell.confidence || 0) * 100; // Map 0.x to percentage
+               }
+            });
+
+            let sumConf = 0;
+            let validCount = 0;
+            let suspiciousCount = 0;
+            for (let j = 0; j < 25; j++) {
+              sumConf += confidences[j];
+              validCount++;
+              if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
+                suspiciousCount++;
+              }
+            }
+            const avgConfidence = validCount > 0 ? (sumConf / validCount) : 0;
+
+            results.push({
+              image: base64Image,
+              numbers: numbers,
+              confidences: confidences,
+              cardNumber: "", 
+              name: `${masterCards.length + results.length + 1}ª CARTELA`,
+              timeTaken: timeTakenSeconds,
+              avgConfidence: avgConfidence,
+              suspiciousCount: suspiciousCount,
+              autoCorrected: 0,
+              userCorrections: 0
+            });
+          }
+
         } catch (err: any) {
           results.push({
             image: base64Image,
@@ -108,7 +135,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
             confidences: Array(25).fill(0),
             cardNumber: "",
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            originalError: err.message || "Falha no processamento OpenCV/OCR. Ajuste manualmente ou tire outra foto."
+            originalError: err.message || "Falha ao processar com Gemini. Ajuste manualmente ou tire outra foto."
           });
         }
     }
