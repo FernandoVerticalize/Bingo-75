@@ -87,32 +87,41 @@ export function CardScanner({ round }: { round: BingoRound }) {
           }
 
           for (const card of data.cards) {
-            // Reconstruct 25 numbers array from {row, column, value, confidence}
-            // Sort by row, then col. Or just map directly: index = (row-1)*5 + (col-1)
             const numbers = Array(25).fill(0);
-            const confidences = Array(25).fill(0);
+            const baseConf = card.average_confidence ? Math.round(card.average_confidence * 100) : 90;
+            const confidences = Array(25).fill(baseConf);
             
-            card.numbers.forEach((cell: any) => {
-               const r = cell.row - 1;
-               const c = cell.column - 1;
-               if (r >= 0 && r < 5 && c >= 0 && c < 5) {
-                  const idx = r * 5 + c;
-                  numbers[idx] = cell.value || 0;
-                  confidences[idx] = (cell.confidence || 0) * 100; // Map 0.x to percentage
-               }
-            });
+            if (card.grid) {
+               const letters = ['B', 'I', 'N', 'G', 'O'];
+               letters.forEach((letter, colIndex) => {
+                  const arr = card.grid[letter] || [];
+                  for (let r = 0; r < 5; r++) {
+                     const idx = r * 5 + colIndex;
+                     numbers[idx] = arr[r] || 0;
+                  }
+               });
+            } else if (card.numbers) {
+              card.numbers.forEach((cell: any) => {
+                 const r = cell.row - 1;
+                 const c = cell.column - 1;
+                 if (r >= 0 && r < 5 && c >= 0 && c < 5) {
+                    const idx = r * 5 + c;
+                    numbers[idx] = cell.value || 0;
+                    if (cell.confidence) {
+                       confidences[idx] = cell.confidence * 100;
+                    }
+                 }
+              });
+            }
 
-            let sumConf = 0;
-            let validCount = 0;
             let suspiciousCount = 0;
             for (let j = 0; j < 25; j++) {
-              sumConf += confidences[j];
-              validCount++;
+              if (j === 12 && (!numbers[j] || numbers[j] === 0)) continue;
               if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
                 suspiciousCount++;
               }
             }
-            const avgConfidence = validCount > 0 ? (sumConf / validCount) : 0;
+            const avgConfidence = baseConf;
 
             results.push({
               image: base64Image,
