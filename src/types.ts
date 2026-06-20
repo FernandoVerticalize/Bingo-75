@@ -8,8 +8,11 @@ export interface MasterCard {
 }
 
 export interface BingoCard extends MasterCard {
-  isWinner: false | 'LINE' | 'COLUMN' | 'DIAGONAL' | 'FULL';
+  isWinner: false | 'LINE' | 'COLUMN' | 'DIAGONAL' | 'FULL' | 'LINE_AND_COLUMN';
   markedCount: number;
+  hasLine: boolean;
+  hasColumn: boolean;
+  hasFull: boolean;
 }
 
 export interface BingoRound {

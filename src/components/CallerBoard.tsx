@@ -137,9 +137,9 @@ export function CallerBoard({ round }: { round: BingoRound }) {
                           "w-full h-full flex items-center justify-center font-medium transition-all outline-none",
                           "hover:brightness-110 active:scale-95 touch-manipulation relative group",
                           isLast 
-                             ? "bg-emerald-500 text-white border-2 border-yellow-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_8px_rgba(250,204,21,0.5)] z-10 font-bold"
+                             ? "bg-[#1e40af] text-white border-2 border-yellow-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_8px_rgba(250,204,21,0.5)] z-10 font-bold"
                              : isDrawn 
-                                ? "bg-emerald-600 text-white font-bold" 
+                                ? "bg-[#1e40af] text-white font-bold" 
                                 : "bg-[#0b1220] text-white hover:bg-slate-700"
                         )}
                         style={{ 

@@ -21,11 +21,13 @@ import { CallerBoard } from './components/CallerBoard';
 import { CardsGrid } from './components/CardsGrid';
 import { CardScanner } from './components/CardScanner';
 import { StatsPanel } from './components/StatsPanel';
+import { HistoryModal } from './components/HistoryModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'BOARD' | 'SCANNER' | 'STATS' | 'ADMIN'>('BOARD');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCallerBoardOpen, setIsCallerBoardOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [callerWidth, setCallerWidth] = useState<number | string>('30%');
   const [callerHeight, setCallerHeight] = useState<number | string>('100%');
   const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
@@ -157,7 +159,10 @@ export default function App() {
           >
             <BarChart2 size={16} className="hidden md:block" /> ESTATÍSTICAS
           </button>
-          <button className="flex items-center gap-1 hover:text-white transition-colors">
+          <button 
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="flex items-center gap-1 hover:text-white transition-colors"
+          >
             <History size={16} className="hidden md:block" /> HISTÓRICO
           </button>
           <button 
@@ -509,6 +514,14 @@ export default function App() {
         )}
       </main>
 
+      {activeRound && (
+        <HistoryModal 
+           isOpen={isHistoryModalOpen} 
+           onClose={() => setIsHistoryModalOpen(false)} 
+           round={activeRound} 
+           masterCards={masterCards} 
+        />
+      )}
     </div>
   );
 }

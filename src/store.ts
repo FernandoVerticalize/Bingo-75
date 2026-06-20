@@ -22,55 +22,41 @@ interface BingoStore {
 }
 
 
-// Logic to check win
-function checkCardWin(
+// Logic to check win states
+export function computeCardState(
   numbers: number[],
-  drawnNumbers: Set<number>,
-  winCondition: BingoRound['winCondition']
-): false | 'LINE' | 'COLUMN' | 'DIAGONAL' | 'FULL' {
-  // Numbers is an array of 25. 5x5 grid.
-  // We assume 0 is a free space, which is always considered "drawn" implicitly.
+  drawnNumbers: Set<number>
+): { hasLine: boolean, hasColumn: boolean, hasFull: boolean, isWinner: BingoCard['isWinner'] } {
   const isMarked = (idx: number) => numbers[idx] === 0 || drawnNumbers.has(numbers[idx]);
-
   const rows = [0, 5, 10, 15, 20];
   const cols = [0, 1, 2, 3, 4];
-
-  // Helper
   const checkLine = (indices: number[]) => indices.every(isMarked);
 
-  // Rows
-  if (winCondition === 'LINE') {
-    for (let r of rows) {
-      if (checkLine([r, r + 1, r + 2, r + 3, r + 4])) return 'LINE';
+  let hasLine = false;
+  for (let r of rows) {
+    if (checkLine([r, r + 1, r + 2, r + 3, r + 4])) hasLine = true;
+  }
+
+  let hasColumn = false;
+  for (let c of cols) {
+    if (checkLine([c, c + 5, c + 10, c + 15, c + 20])) hasColumn = true;
+  }
+
+  let hasFull = true;
+  for (let i = 0; i < 25; i++) {
+    if (!isMarked(i)) {
+      hasFull = false;
+      break;
     }
   }
 
-  // Columns
-  if (winCondition === 'COLUMN') {
-    for (let c of cols) {
-      if (checkLine([c, c + 5, c + 10, c + 15, c + 20])) return 'COLUMN';
-    }
-  }
+  let isWinner: BingoCard['isWinner'] = false;
+  if (hasFull) isWinner = 'FULL';
+  else if (hasLine && hasColumn) isWinner = 'LINE_AND_COLUMN';
+  else if (hasLine) isWinner = 'LINE';
+  else if (hasColumn) isWinner = 'COLUMN';
 
-  // Diagonals
-  if (winCondition === 'DIAGONAL') {
-    if (checkLine([0, 6, 12, 18, 24])) return 'DIAGONAL';
-    if (checkLine([4, 8, 12, 16, 20])) return 'DIAGONAL';
-  }
-
-  // Full Board
-  if (winCondition === 'FULL' || winCondition === 'ANY') {
-    let full = true;
-    for (let i = 0; i < 25; i++) {
-      if (!isMarked(i)) {
-        full = false;
-        break;
-      }
-    }
-    if (full) return 'FULL';
-  }
-
-  return false;
+  return { hasLine, hasColumn, hasFull, isWinner };
 }
 
 function computeMarkedCount(numbers: number[], drawnNumbers: Set<number>) {
@@ -80,11 +66,14 @@ function computeMarkedCount(numbers: number[], drawnNumbers: Set<number>) {
 export const getRoundCards = (masterCards: MasterCard[], round: BingoRound | undefined): BingoCard[] => {
   if (!round) return [];
   const drawnSet = new Set(round.drawnNumbers);
-  return masterCards.map(c => ({
-    ...c,
-    isWinner: checkCardWin(c.numbers, drawnSet, round.winCondition),
-    markedCount: computeMarkedCount(c.numbers, drawnSet) // Using computeMarkedCount (must be before or defined correctly)
-  }));
+  return masterCards.map(c => {
+    const state = computeCardState(c.numbers, drawnSet);
+    return {
+      ...c,
+      ...state,
+      markedCount: computeMarkedCount(c.numbers, drawnSet)
+    }
+  });
 };
 
 export const useStore = create<BingoStore>()(
