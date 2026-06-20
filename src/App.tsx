@@ -3,6 +3,7 @@ import { useStore } from './store';
 import { StorageManager } from './components/StorageManager';
 import { StoragePanel } from './components/StoragePanel';
 import { initAuth } from './lib/sync';
+import { saveAppSnapshot } from './storage';
 import { 
   Settings, 
   Camera, 
@@ -16,7 +17,8 @@ import {
   Redo2,
   ChevronDown,
   Hash,
-  X
+  X,
+  Save
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { CallerBoard } from './components/CallerBoard';
@@ -32,6 +34,7 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [callerWidth, setCallerWidth] = useState<number | string>('30%');
   const [callerHeight, setCallerHeight] = useState<number | string>('100%');
+  const [isSaving, setIsSaving] = useState(false);
   const { masterCards, rounds, activeRoundId, addRound, setActiveRound, deleteRound, updateRoundName } = useStore();
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
@@ -39,6 +42,12 @@ export default function App() {
   useEffect(() => {
     initAuth();
   }, []);
+
+  const handleManualSave = async () => {
+    setIsSaving(true);
+    await saveAppSnapshot();
+    setTimeout(() => setIsSaving(false), 2000);
+  };
 
   const getNextRoundName = () => {
       return `RODADA ${String(rounds.length + 1).padStart(2, '0')}`;
@@ -171,8 +180,17 @@ export default function App() {
           <button 
             onClick={() => setActiveTab('ADMIN')}
             className={cn("hover:text-white transition-colors", activeTab === 'ADMIN' && "text-emerald-400")}
+            title="Configurações"
           >
             <Settings size={18} />
+          </button>
+          <button 
+            onClick={handleManualSave}
+            disabled={isSaving}
+            className={cn("hover:text-white transition-colors", isSaving && "text-emerald-400 animate-pulse")}
+            title="Salvar Dados Localmente"
+          >
+            <Save size={18} />
           </button>
         </div>
       </nav>

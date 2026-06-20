@@ -54,6 +54,34 @@ export function CardScanner({ round }: { round: BingoRound }) {
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resizeImage = (dataUrl: string, maxWidth = 1600, maxHeight = 1600): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+           ctx.drawImage(img, 0, 0, width, height);
+           resolve(canvas.toDataURL('image/jpeg', 0.8));
+        } else {
+           resolve(dataUrl);
+        }
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const processImages = async (base64Images: string[]) => {
     setMode('PROCESSING');
     setError(null);
@@ -153,10 +181,11 @@ export function CardScanner({ round }: { round: BingoRound }) {
     setMode('REVIEW');
   };
 
-  const capture = useCallback(() => {
+  const capture = useCallback(async () => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
-      processImages([imageSrc]);
+      const resized = await resizeImage(imageSrc, 1600, 1600);
+      processImages([resized]);
     } else {
       setError("Não foi possível capturar a imagem.");
     }
@@ -169,7 +198,10 @@ export function CardScanner({ round }: { round: BingoRound }) {
     Promise.all(files.map(file => {
       return new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
+        reader.onloadend = async () => {
+           const resized = await resizeImage(reader.result as string, 1600, 1600);
+           resolve(resized);
+        };
         reader.readAsDataURL(file);
       });
     })).then(base64Images => {
