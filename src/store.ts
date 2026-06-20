@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { v4 as uuidv4 } from "uuid";
 import type { BingoRound, MasterCard, BingoCard } from "./types";
 
@@ -76,9 +75,7 @@ export const getRoundCards = (masterCards: MasterCard[], round: BingoRound | und
   });
 };
 
-export const useStore = create<BingoStore>()(
-  persist(
-    (set, get) => ({
+export const useStore = create<BingoStore>()((set, get) => ({
       masterCards: [],
       rounds: Array.from({ length: 10 }).map((_, i) => ({
         id: uuidv4(),
@@ -220,46 +217,5 @@ export const useStore = create<BingoStore>()(
            return { rounds };
         });
       }
-    }),
-
-    {
-      name: "bingo-storage",
-      version: 2,
-      migrate: (persistedState: any, version: number) => {
-        let state = persistedState;
-        
-        if (version === 0 || version === 1) {
-           // v1 to v2 migration
-           state.masterCards = state.masterCards || [];
-           
-           if (state.rounds && Array.isArray(state.rounds)) {
-             for (const r of state.rounds) {
-               r.winCondition = 'FULL'; // enforce FULL win condition
-               
-               if (r.cards && Array.isArray(r.cards)) {
-                  // Transfer unique cards to masterCards collection
-                  for (const c of r.cards) {
-                     if (!state.masterCards.some((mc: any) => mc.id === c.id)) {
-                        // Fix formatting for legacy names
-                        let finalName = c.name;
-                        if (/^Cartela\s+(\d+)$/i.test(finalName)) {
-                          finalName = finalName.replace(/^Cartela\s+(\d+)$/i, "$1ª CARTELA");
-                        }
-                        state.masterCards.push({
-                           id: c.id,
-                           name: finalName,
-                           cardNumber: c.cardNumber,
-                           numbers: c.numbers
-                        });
-                     }
-                  }
-                  delete r.cards;
-               }
-             }
-           }
-        }
-        return state as any;
-      }
-    }
-  )
+    })
 );

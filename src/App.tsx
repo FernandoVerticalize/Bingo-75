@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
+import { StorageManager } from './components/StorageManager';
+import { StoragePanel } from './components/StoragePanel';
 import { initAuth } from './lib/sync';
 import { 
   Settings, 
@@ -54,6 +56,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0f111a] text-slate-100 font-sans flex flex-col">
+      <StorageManager onLoaded={() => setActiveTab('BOARD')} />
       {/* Top Navigation Bar */}
       <nav className="h-14 bg-[#0f111a] border-b border-slate-800 flex items-center justify-between px-2 md:px-4 shrink-0 gap-2 md:gap-4">
         {/* Left Elements */}
@@ -506,6 +509,8 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  <StoragePanel onLoaded={() => setActiveTab('BOARD')} />
                 </div>
               </div>
             )}
