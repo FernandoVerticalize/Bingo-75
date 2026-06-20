@@ -212,28 +212,35 @@ export default function App() {
                   
                   {/* Resize Handle - Horizontal (Left edge) */}
                   <div 
-                    className="absolute -left-3 top-0 bottom-0 w-6 cursor-col-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle"
-                    onMouseDown={(e) => {
+                    className="absolute -left-3 top-0 bottom-0 w-6 cursor-col-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle touch-none"
+                    onPointerDown={(e) => {
                        e.preventDefault();
+                       e.currentTarget.setPointerCapture(e.pointerId);
                        const startX = e.clientX;
                        const container = e.currentTarget.parentElement;
                        if (!container) return;
                        const startWidth = container.offsetWidth;
 
-                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                       const handlePointerMove = (moveEvent: PointerEvent) => {
                           const deltaX = startX - moveEvent.clientX; 
                           let newWidth = startWidth + deltaX;
                           if (newWidth < 220) newWidth = 220;
                           setCallerWidth(newWidth);
                        };
 
-                       const handleMouseUp = () => {
-                         document.removeEventListener('mousemove', handleMouseMove);
-                         document.removeEventListener('mouseup', handleMouseUp);
+                       const handlePointerUp = (upEvent: PointerEvent) => {
+                         const target = upEvent.currentTarget as HTMLElement;
+                         if (target && target.releasePointerCapture) {
+                             target.releasePointerCapture(upEvent.pointerId);
+                         }
+                         document.removeEventListener('pointermove', handlePointerMove);
+                         document.removeEventListener('pointerup', handlePointerUp);
+                         document.removeEventListener('pointercancel', handlePointerUp);
                        };
 
-                       document.addEventListener('mousemove', handleMouseMove);
-                       document.addEventListener('mouseup', handleMouseUp);
+                       document.addEventListener('pointermove', handlePointerMove);
+                       document.addEventListener('pointerup', handlePointerUp);
+                       document.addEventListener('pointercancel', handlePointerUp);
                     }}
                   >
                      <div className="w-[3px] h-12 bg-slate-500/30 group-hover/handle:bg-slate-400 group-hover/handle:shadow-[0_0_8px_rgba(5,150,105,0.8)] rounded-full transition-all" />
@@ -241,28 +248,35 @@ export default function App() {
                   
                   {/* Resize Handle - Vertical (Bottom edge) */}
                   <div 
-                    className="absolute left-0 right-0 -bottom-3 h-6 cursor-row-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle"
-                    onMouseDown={(e) => {
+                    className="absolute left-0 right-0 -bottom-3 h-6 cursor-row-resize hover:bg-emerald-500/20 group-hover:bg-slate-700/20 transition-colors z-20 flex items-center justify-center group/handle touch-none"
+                    onPointerDown={(e) => {
                        e.preventDefault();
+                       e.currentTarget.setPointerCapture(e.pointerId);
                        const startY = e.clientY;
                        const container = e.currentTarget.parentElement;
                        if (!container) return;
                        const startHeight = container.offsetHeight;
 
-                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                       const handlePointerMove = (moveEvent: PointerEvent) => {
                           const deltaY = moveEvent.clientY - startY; 
                           let newHeight = startHeight + deltaY;
                           if (newHeight < 300) newHeight = 300;
                           setCallerHeight(newHeight);
                        };
 
-                       const handleMouseUp = () => {
-                         document.removeEventListener('mousemove', handleMouseMove);
-                         document.removeEventListener('mouseup', handleMouseUp);
+                       const handlePointerUp = (upEvent: PointerEvent) => {
+                         const target = upEvent.currentTarget as HTMLElement;
+                         if (target && target.releasePointerCapture) {
+                             target.releasePointerCapture(upEvent.pointerId);
+                         }
+                         document.removeEventListener('pointermove', handlePointerMove);
+                         document.removeEventListener('pointerup', handlePointerUp);
+                         document.removeEventListener('pointercancel', handlePointerUp);
                        };
 
-                       document.addEventListener('mousemove', handleMouseMove);
-                       document.addEventListener('mouseup', handleMouseUp);
+                       document.addEventListener('pointermove', handlePointerMove);
+                       document.addEventListener('pointerup', handlePointerUp);
+                       document.addEventListener('pointercancel', handlePointerUp);
                     }}
                   >
                      <div className="h-[3px] w-12 bg-slate-500/30 group-hover/handle:bg-slate-400 group-hover/handle:shadow-[0_0_8px_rgba(5,150,105,0.8)] rounded-full transition-all" />
@@ -270,9 +284,10 @@ export default function App() {
                   
                   {/* Corner Resize Handle */}
                   <div 
-                    className="absolute -left-4 -bottom-4 w-8 h-8 cursor-sw-resize z-30 flex items-end justify-start pl-2 pb-2 group/corner"
-                    onMouseDown={(e) => {
+                    className="absolute -left-4 -bottom-4 w-10 h-10 cursor-sw-resize z-30 flex items-end justify-start pl-3 pb-3 group/corner touch-none"
+                    onPointerDown={(e) => {
                        e.preventDefault();
+                       e.currentTarget.setPointerCapture(e.pointerId);
                        const startX = e.clientX;
                        const startY = e.clientY;
                        const container = e.currentTarget.parentElement;
@@ -280,7 +295,7 @@ export default function App() {
                        const startWidth = container.offsetWidth;
                        const startHeight = container.offsetHeight;
 
-                       const handleMouseMove = (moveEvent: MouseEvent) => {
+                       const handlePointerMove = (moveEvent: PointerEvent) => {
                           const deltaX = startX - moveEvent.clientX; 
                           const deltaY = moveEvent.clientY - startY; 
                           
@@ -294,17 +309,23 @@ export default function App() {
                           setCallerHeight(newHeight);
                        };
 
-                       const handleMouseUp = () => {
-                         document.removeEventListener('mousemove', handleMouseMove);
-                         document.removeEventListener('mouseup', handleMouseUp);
+                       const handlePointerUp = (upEvent: PointerEvent) => {
+                         const target = upEvent.currentTarget as HTMLElement;
+                         if (target && target.releasePointerCapture) {
+                             target.releasePointerCapture(upEvent.pointerId);
+                         }
+                         document.removeEventListener('pointermove', handlePointerMove);
+                         document.removeEventListener('pointerup', handlePointerUp);
+                         document.removeEventListener('pointercancel', handlePointerUp);
                        };
 
-                       document.addEventListener('mousemove', handleMouseMove);
-                       document.addEventListener('mouseup', handleMouseUp);
+                       document.addEventListener('pointermove', handlePointerMove);
+                       document.addEventListener('pointerup', handlePointerUp);
+                       document.addEventListener('pointercancel', handlePointerUp);
                     }}
                   >
-                     <div className="w-4 h-4 bg-slate-500/40 rounded-bl-sm rounded-tr-full group-hover/corner:bg-slate-400 group-hover/corner:shadow-[0_0_12px_rgba(5,150,105,1)] transition-all flex items-end justify-start p-1">
-                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                     <div className="w-5 h-5 bg-slate-500/40 rounded-sm rounded-tr-full group-hover/corner:bg-slate-400 group-hover/corner:shadow-[0_0_12px_rgba(5,150,105,1)] transition-all flex items-end justify-start p-1.5">
+                       <div className="w-2 h-2 bg-emerald-500 rounded-full" />
                      </div>
                   </div>
                 </div>
