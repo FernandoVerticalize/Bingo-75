@@ -274,7 +274,7 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
      if (currentHighlight === 'FULL') return "border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)] ring-2 ring-yellow-400";
      if (currentHighlight === 'LINE_AND_COLUMN') return "border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)] ring-2 ring-orange-500/50";
      if (currentHighlight === 'COLUMN') return "border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)] ring-2 ring-yellow-500/50";
-     if (currentHighlight === 'LINE') return "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/50";
+     if (currentHighlight === 'LINE') return "border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)] ring-2 ring-yellow-500/50";
      return "border-[#1e293b]";
   };
 
@@ -282,7 +282,7 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
      if (currentHighlight === 'FULL') return "bg-yellow-500 text-black";
      if (currentHighlight === 'LINE_AND_COLUMN') return "bg-orange-600 text-white";
      if (currentHighlight === 'COLUMN') return "bg-yellow-600 text-white";
-     if (currentHighlight === 'LINE') return "bg-emerald-600 text-white";
+     if (currentHighlight === 'LINE') return "bg-yellow-600 text-white";
      return "bg-[#1e40af] text-white";
   };
 
@@ -297,8 +297,7 @@ function CardThumbnail({ card, index, drawnNumbers, scale, onClick }: { key?: Re
     >
       {currentHighlight && currentHighlight !== 'FULL' && (
          <div className={cn("absolute inset-0 ring-4 animate-pulse pointer-events-none z-10",
-            currentHighlight === 'COLUMN' ? "ring-yellow-500/20" :
-            currentHighlight === 'LINE_AND_COLUMN' ? "ring-orange-500/20" : "ring-emerald-500/20"
+            currentHighlight === 'LINE_AND_COLUMN' ? "ring-orange-500/20" : "ring-yellow-500/20"
          )} />
       )}
       {currentHighlight === 'FULL' && (
