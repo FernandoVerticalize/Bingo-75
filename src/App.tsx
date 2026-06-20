@@ -42,6 +42,14 @@ export default function App() {
 
 
 
+  const historyScrollRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+     if (historyScrollRef.current) {
+        historyScrollRef.current.scrollLeft = historyScrollRef.current.scrollWidth;
+     }
+  }, [activeRound?.drawnNumbers?.length]);
+
   return (
     <div className="min-h-screen bg-[#0f111a] text-slate-100 font-sans flex flex-col">
       {/* Top Navigation Bar */}
@@ -160,6 +168,45 @@ export default function App() {
           </button>
         </div>
       </nav>
+
+      {/* History Bar */}
+      {activeRound && activeRound.drawnNumbers && (
+         <div className="h-5 md:h-6 bg-[#12141c] border-b border-slate-800/80 flex items-center px-3 md:px-4 shrink-0 overflow-hidden relative">
+            <div className="flex items-center gap-3 w-full max-w-full">
+               <span className="text-[9px] md:text-[10px] font-bold text-slate-400 shrink-0 uppercase tracking-widest whitespace-nowrap flex items-center gap-1.5">
+                  <span className="hidden sm:inline">Sorteados: </span>
+                  <span className="text-emerald-400">{activeRound.drawnNumbers.length}/75</span>
+               </span>
+               <div className="w-px h-2.5 bg-slate-700 shrink-0" />
+               <div 
+                  ref={historyScrollRef}
+                  className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-hide flex items-center scroll-smooth pr-4 sm:pr-8"
+               >
+                   <div className="flex items-center whitespace-nowrap font-mono text-[10px] md:text-[11px] text-slate-400 font-medium pb-px">
+                      {activeRound.drawnNumbers.map((num, idx) => {
+                          const isLast = idx === activeRound.drawnNumbers.length - 1;
+                          return (
+                              <React.Fragment key={`${num}-${idx}`}>
+                                  <span className={cn(
+                                      "transition-all duration-300",
+                                      isLast ? "text-emerald-400 font-bold drop-shadow-[0_0_5px_rgba(52,211,153,0.6)]" : "text-slate-300"
+                                  )}>
+                                      {String(num).padStart(2, '0')}
+                                  </span>
+                                  {idx < activeRound.drawnNumbers.length - 1 && (
+                                      <span className="mx-1 md:mx-1.5 text-slate-700 font-sans text-[8px] md:text-[9px] opacity-70">•</span>
+                                  )}
+                              </React.Fragment>
+                          );
+                      })}
+                      {activeRound.drawnNumbers.length === 0 && (
+                          <span className="text-slate-600 italic text-[9px] md:text-[10px] font-sans">Nenhum número sorteado ainda</span>
+                      )}
+                   </div>
+               </div>
+            </div>
+         </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden flex flex-col bg-[#0b0c10] p-2">
