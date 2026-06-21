@@ -4,7 +4,6 @@ import type { BingoRound, MasterCard } from '../types';
 import { useStore } from '../store';
 import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
-import Tesseract from 'tesseract.js';
 import { extractBingoGrid, processBingoCardCells } from '../lib/ocrPipeline';
 import { syncCardToFirestore, uploadCardImage } from '../lib/sync';
 import { v4 as uuidv4 } from 'uuid';
@@ -95,75 +94,42 @@ export function CardScanner({ round }: { round: BingoRound }) {
         
         const startTime = performance.now();
         try {
-          setProgressMsg(`Enviando imagem ${i + 1} para o Gemini...`);
+          setProgressMsg(`Cartela ${i + 1}: Preparando imagem...`);
+          const cellsBase64 = await extractBingoGrid(base64Image);
           
-          const response = await fetch("/api/scan-bingo", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ images: [base64Image] }),
-          });
+          setProgressMsg(`Cartela ${i + 1}: Analisando números...`);
+          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(
+            cellsBase64,
+            (p) => {
+                setProgressMsg(`Cartela ${i + 1}: Analisando números... ${Math.round(p * 100)}%`);
+            }
+          );
 
-          if (!response.ok) {
-            throw new Error(`Erro do servidor: ${response.statusText}`);
-          }
-
-          const data = await response.json();
           const timeTakenSeconds = Math.round((performance.now() - startTime) / 1000);
 
-          if (!data.success || !data.cards || data.cards.length === 0) {
-            throw new Error(data.error || "Nenhuma cartela identificada.");
+          let suspiciousCount = 0;
+          let sumConf = 0;
+          for (let j = 0; j < 25; j++) {
+             sumConf += confidences[j];
+             if (j === 12 && (!numbers[j] || numbers[j] === 0)) continue;
+             if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
+               suspiciousCount++;
+             }
           }
+          const avgConfidence = Math.round(sumConf / 25);
 
-          for (const card of data.cards) {
-            const numbers = Array(25).fill(0);
-            const baseConf = card.average_confidence ? Math.round(card.average_confidence * 100) : 90;
-            const confidences = Array(25).fill(baseConf);
-            
-            if (card.grid) {
-               const letters = ['B', 'I', 'N', 'G', 'O'];
-               letters.forEach((letter, colIndex) => {
-                  const arr = card.grid[letter] || [];
-                  for (let r = 0; r < 5; r++) {
-                     const idx = r * 5 + colIndex;
-                     numbers[idx] = arr[r] || 0;
-                  }
-               });
-            } else if (card.numbers) {
-              card.numbers.forEach((cell: any) => {
-                 const r = cell.row - 1;
-                 const c = cell.column - 1;
-                 if (r >= 0 && r < 5 && c >= 0 && c < 5) {
-                    const idx = r * 5 + c;
-                    numbers[idx] = cell.value || 0;
-                    if (cell.confidence) {
-                       confidences[idx] = cell.confidence * 100;
-                    }
-                 }
-              });
-            }
-
-            let suspiciousCount = 0;
-            for (let j = 0; j < 25; j++) {
-              if (j === 12 && (!numbers[j] || numbers[j] === 0)) continue;
-              if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
-                suspiciousCount++;
-              }
-            }
-            const avgConfidence = baseConf;
-
-            results.push({
-              image: base64Image,
-              numbers: numbers,
-              confidences: confidences,
-              cardNumber: "", 
-              name: `${masterCards.length + results.length + 1}ª CARTELA`,
-              timeTaken: timeTakenSeconds,
-              avgConfidence: avgConfidence,
-              suspiciousCount: suspiciousCount,
-              autoCorrected: 0,
-              userCorrections: 0
-            });
-          }
+          results.push({
+            image: base64Image,
+            numbers: numbers,
+            confidences: confidences.map(c => Math.round(c)),
+            cardNumber: "", 
+            name: `${masterCards.length + results.length + 1}ª CARTELA`,
+            timeTaken: timeTakenSeconds,
+            avgConfidence: avgConfidence,
+            suspiciousCount: suspiciousCount,
+            autoCorrected: autoCorrectedCount,
+            userCorrections: 0
+          });
 
         } catch (err: any) {
           results.push({
@@ -172,7 +138,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
             confidences: Array(25).fill(0),
             cardNumber: "",
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
-            originalError: err.message || "Falha ao processar com Gemini. Ajuste manualmente ou tire outra foto."
+            originalError: err.message || "Falha ao processar a imagem. Tente uma foto mais nítida."
           });
         }
     }
@@ -421,7 +387,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
             </div>
             
             {/* Right: Validation & Editing */}
-            <div className="w-full lg:w-[400px] flex flex-col">
+            <div className="w-full lg:w-[400px] flex flex-col lg:max-h-[600px] overflow-y-auto pr-2 pb-2">
                 <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-2">
                     <h3 className="text-white font-bold text-lg">Prévia (Restam {reviewQueue.length})</h3>
                 </div>
@@ -520,7 +486,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                         max="75"
                         className={cn(
                           "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors border",
-                          (!valid || conf < 80)
+                          (!valid)
                                ? "bg-red-900/70 text-red-100 border-red-500 focus:bg-red-800"
                                : (conf < 95)
                                   ? "bg-yellow-900/70 text-yellow-200 border-yellow-500 focus:bg-yellow-800"
@@ -533,51 +499,62 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
                           newNums[idx] = val;
                           newConfs[idx] = 100; // Reset confidence on manual edit
+                          
+                          // update suspicious count
+                          let newSuspicious = 0;
+                          for (let j = 0; j < 25; j++) {
+                             if (j === 12 && (!newNums[j] || newNums[j] === 0)) continue;
+                             if (!isValidNumber(newNums[j], j) || newConfs[j] < 90) newSuspicious++;
+                          }
+                          
                           const userCorrections = (currentReview.userCorrections || 0) + 1;
-                          updateCurrentReview({ numbers: newNums, confidences: newConfs, userCorrections });
+                          updateCurrentReview({ numbers: newNums, confidences: newConfs, userCorrections, suspiciousCount: newSuspicious });
                         }}
                         placeholder={''}
                         title={conf ? `Confiança: ${Math.round(conf)}%` : undefined}
                       />
                     )})}
                   </div>
+                  
+                  {(!isValidReady || (currentReview.suspiciousCount && currentReview.suspiciousCount > 0)) && (
+                    <div className="mt-4 p-3 bg-red-900/40 border border-red-500/50 rounded flex gap-2 text-red-300 text-sm font-bold items-center">
+                       <AlertTriangle size={18} /> Possível erro de leitura identificado.
+                    </div>
+                  )}
                 </div>
 
                 {!currentReview.isDuplicate && (
                     <div className="flex flex-col gap-3 mt-auto">
-                      <div className="flex gap-4">
-                        <button 
-                          onClick={() => {
-                              if (confirm("Tem certeza que deseja descartar esta cartela?")) {
-                                  nextCard();
-                              }
-                          }}
-                          className="py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-sm tracking-wider uppercase transition-colors"
-                        >
-                          Descartar
-                        </button>
+                      <div className="flex gap-2">
                         <button 
                           disabled={!isValidReady}
                           onClick={saveCard}
                           className={cn(
-                            "flex-1 py-3 text-white rounded-lg font-bold flex items-center justify-center gap-2 uppercase tracking-wider transition-colors shadow-lg",
+                            "flex-1 py-3 text-white rounded-lg font-bold flex items-center justify-center gap-2 tracking-wider transition-colors shadow-lg",
                             isValidReady ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-slate-700 cursor-not-allowed opacity-50 text-slate-400"
                           )}
                         >
-                          <CheckCircle2 size={20} /> {isValidReady ? "Confirmar" : "Corrija Erros"}
+                          <CheckCircle2 size={20} /> Confirmar
+                        </button>
+                        <button 
+                          onClick={() => {
+                             // "Editar" button - gives visual cue that they can edit
+                          }}
+                          className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg font-bold flex items-center justify-center gap-2 tracking-wider transition-colors"
+                        >
+                          <Edit3 size={18} /> Editar
+                        </button>
+                        <button 
+                          onClick={() => {
+                              if (confirm("Tem certeza que deseja cancelar e descartar esta cartela?")) {
+                                  nextCard();
+                              }
+                          }}
+                          className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold flex items-center justify-center gap-2 tracking-wider transition-colors"
+                        >
+                          <X size={18} /> Cancelar
                         </button>
                       </div>
-                      <button 
-                        onClick={() => {
-                            if (confirm("Tem certeza que deseja cancelar toda a importação e voltar?")) {
-                                setReviewQueue([]);
-                                setMode('IDLE');
-                            }
-                        }}
-                        className="py-2.5 bg-red-950/30 hover:bg-red-900/50 text-red-300 border border-red-900/50 rounded-lg font-bold text-xs tracking-wider uppercase transition-colors flex items-center justify-center gap-2"
-                      >
-                        <X size={16} /> Cancelar Importação
-                      </button>
                     </div>
                 )}
             </div>

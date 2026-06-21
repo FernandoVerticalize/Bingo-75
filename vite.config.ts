@@ -14,6 +14,9 @@ export default defineConfig(() => {
         devOptions: {
           enabled: true
         },
+        workbox: {
+          maximumFileSizeToCacheInBytes: 20 * 1024 * 1024
+        },
         manifest: {
           name: 'Conferir Bingo PRO',
           short_name: 'ConferirBingo',

@@ -25,11 +25,13 @@ const ensureCvReady = (): Promise<void> => {
 export type OCRCellResult = {
   value: number;
   confidence: number;
+  row: number;
+  col: number;
 };
 
-// Utilities for validation
 const isValidForColumn = (val: number, colIndex: number, cellIndex: number): boolean => {
   if (cellIndex === 12 && (!val || val === 0)) return true;
+  if (!val) return false;
   if (colIndex === 0) return val >= 1 && val <= 15;
   if (colIndex === 1) return val >= 16 && val <= 30;
   if (colIndex === 2) return val >= 31 && val <= 45;
@@ -159,18 +161,9 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
           srcTri.delete(); dstTri.delete(); M.delete(); bestContour.delete();
         }
         
-        // At this point targetMat is our card or original if no contour found.
-        // We will assume the grid is standard: 5x5, maybe covering the bottom 80% if there is a BINGO header.
-        // To be safe, let's just divide into 5x5 by making 25 sub-mats.
-        // In real cases, we'd do horizontal/vertical line detection, but bounding box slicing works best for a corrected perspective image without header... Wait! The user says:
-        // "Localizar a grade BINGO. Identificar: 5 colunas 5 linhas".
-        // It's much safer to just slice the card! If the card has a header, the grid is bottom ~80%. Let's assume standard cards: grid is mostly the whole square after cropped.
-        
-        // Actually, detecting the inner 5x5 grid contour would be more robust. Let's do simple slicing for now: assume header might be top 20%.
         const tw = targetMat.cols;
         const th = targetMat.rows;
         
-        // If it's a rectangle (h > w), usually the top is header. So grid is roughly square.
         const gridYOffset = th > tw ? th - tw : 0; 
         const gridHeight = th > tw ? tw : th;
         
@@ -187,7 +180,6 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
             const x = col * cellW;
             const y = gridYOffset + row * cellH;
             
-            // Adjust to safely avoid borders by inner cropping slightly (e.g., 5% margin)
             const marginX = cellW * 0.1;
             const marginY = cellH * 0.1;
             const finalX = Math.min(Math.max(x + marginX, 0), tw - 1);
@@ -197,7 +189,6 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
             
             const cellMat = targetMat.roi(new cv.Rect(finalX, finalY, finalW, finalH));
             
-            // Convert to black and white using adaptive thresholding for better OCR
             const grayCell = new cv.Mat();
             cv.cvtColor(cellMat, grayCell, cv.COLOR_RGBA2GRAY);
             const bwCell = new cv.Mat();
@@ -212,7 +203,6 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
           }
         }
         
-        // Cleanup main Mats
         mat.delete(); gray.delete(); blurred.delete(); edges.delete(); hierarchy.delete(); contours.delete();
         if (targetMat !== mat) targetMat.delete();
         
@@ -231,19 +221,18 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
 export const runOCRPass = async (worker: Tesseract.Worker, imageBase64: string, psm: number = 8): Promise<OCRCellResult> => {
   await worker.setParameters({
     tessedit_char_whitelist: '0123456789',
-    tessedit_pageseg_mode: psm as any, // 8 = SINGLE_WORD
+    tessedit_pageseg_mode: psm as any, 
   });
   
   const result = await worker.recognize(imageBase64);
   const text = result.data.text.trim().replace(/\D/g, '');
   let conf = result.data.confidence;
   
-  // If nothing found
   if (!text) {
-     return { value: 0, confidence: 0 };
+     return { value: 0, confidence: 0, row: 0, col: 0 };
   }
   
-  return { value: parseInt(text, 10), confidence: conf };
+  return { value: parseInt(text, 10), confidence: conf, row: 0, col: 0 };
 };
 
 export const processBingoCardCells = async (
@@ -254,23 +243,17 @@ export const processBingoCardCells = async (
   const confidences: number[] = new Array(25).fill(0);
   let autoCorrectedCount = 0;
   
-  // Initialize worker for pass 1 (single word)
   const worker1 = await Tesseract.createWorker('eng', 1);
-  
-  // Initialize worker for pass 2 (single line)
   const worker2 = await Tesseract.createWorker('eng', 1);
 
   for (let i = 0; i < 25; i++) {
     const colIndex = i % 5;
     
-    // Pass 1
-    const res1 = await runOCRPass(worker1, cellsBase64[i], 8); // PSM_SINGLE_WORD
-    // Pass 2
-    const res2 = await runOCRPass(worker2, cellsBase64[i], 7); // PSM_SINGLE_LINE
+    const res1 = await runOCRPass(worker1, cellsBase64[i], 8); 
+    const res2 = await runOCRPass(worker2, cellsBase64[i], 7); 
     
     let bestRes = res1.confidence > res2.confidence ? res1 : res2;
     
-    // If it's cell 12 and it's empty or invalid, assume it's the free space
     if (i === 12 && (!bestRes.value || bestRes.value === 0)) {
         numbers[i] = 0;
         confidences[i] = 100;
@@ -278,13 +261,10 @@ export const processBingoCardCells = async (
         continue;
     }
 
-    // Validation + Auto-Correction
     if (!isValidForColumn(bestRes.value, colIndex, i)) {
       if (bestRes.value > 0) {
-        // Find best match if reasonable string
         const corrected = findBestMatch(bestRes.value.toString(), colIndex);
         bestRes.value = corrected;
-        // penalty for correction
         bestRes.confidence = bestRes.confidence * 0.8;
         autoCorrectedCount++;
       } else if (i === 12) {
@@ -304,3 +284,4 @@ export const processBingoCardCells = async (
   
   return { numbers, confidences, autoCorrectedCount };
 };
+

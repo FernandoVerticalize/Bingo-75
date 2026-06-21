@@ -5,6 +5,7 @@ import { StoragePanel } from './components/StoragePanel';
 import { DiagnosticPanel } from './components/DiagnosticPanel';
 import { initAuth } from './lib/sync';
 import { saveAppSnapshot } from './storage';
+import { toast } from 'sonner';
 import { 
   Settings, 
   Camera, 
