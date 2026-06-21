@@ -46,9 +46,6 @@ export function CallerBoard({ round, isUserResized = false }: { round: BingoRoun
   let cellHeight = fixedCellWidth;
 
   let actualGridHeight = containerHeight;
-  if (!isUserResized && containerHeight > 0) {
-     actualGridHeight = containerHeight * 1.6;
-  }
 
   if (containerHeight > 0 && containerWidth > 0) {
      // Fully elastic stretch-to-fit calculation
@@ -104,10 +101,9 @@ export function CallerBoard({ round, isUserResized = false }: { round: BingoRoun
          ref={containerRef}
       >
           <div 
-             className="grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700 w-full"
+             className="grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700 w-full h-full"
              style={{ 
-                 gridTemplateRows: 'repeat(16, minmax(0, 1fr))',
-                 height: isUserResized ? '100%' : '160%'
+                 gridTemplateRows: 'repeat(16, minmax(0, 1fr))'
              }}
           >
              {/* Header row */}
