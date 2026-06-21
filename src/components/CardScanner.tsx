@@ -23,7 +23,6 @@ type ReviewCard = {
   suspiciousCount?: number;
   autoCorrected?: number;
   userCorrections?: number;
-  reprocessCount?: number;
 };
 
 const isValidNumber = (num: number, idx: number) => {
@@ -149,7 +148,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
           const cellsBase64 = await extractBingoGrid(base64Image);
           
           setProgressMsg(`Cartela ${i + 1}: Analisando números...`);
-          const { numbers, confidences, autoCorrectedCount, reprocessCount } = await processBingoCardCells(
+          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(
             cellsBase64,
             (p) => {
                 setProgressMsg(`Cartela ${i + 1}: Analisando números... ${Math.round(p * 100)}%`);
@@ -179,8 +178,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
             avgConfidence: avgConfidence,
             suspiciousCount: suspiciousCount,
             autoCorrected: autoCorrectedCount,
-            userCorrections: 0,
-            reprocessCount: reprocessCount
+            userCorrections: 0
           });
 
         } catch (err: any) {
@@ -248,7 +246,9 @@ export function CardScanner({ round }: { round: BingoRound }) {
       }
   }, [mode, currentReview, masterCards, duplicateAction]);
 
-  const isValidReady = currentReview ? currentReview.numbers.every((num, idx) => isValidNumber(num, idx)) : true;
+  const isValidReady = currentReview ? (
+    currentReview.numbers.every((num, idx) => isValidNumber(num, idx))
+  ) : true;
 
   const nextCard = () => {
      setReviewQueue(q => q.slice(1));
@@ -476,14 +476,6 @@ export function CardScanner({ round }: { round: BingoRound }) {
                          <span className="font-mono font-bold">{currentReview.userCorrections || 0}</span>
                      </div>
                      <div className="flex justify-between border-t border-current/20 pt-1 mt-1">
-                         <span className="opacity-80 text-xs">Reprocessamentos Internos:</span>
-                         <span className="font-mono font-bold text-xs">{currentReview.reprocessCount || 0}</span>
-                     </div>
-                     <div className="flex justify-between">
-                         <span className="opacity-80 text-xs">Precisão Estimada (Confiança):</span>
-                         <span className="font-mono font-bold text-xs">{Math.min(100, Math.round((currentReview.avgConfidence || 0) * 1.05))}%</span>
-                     </div>
-                     <div className="flex justify-between border-t border-current/20 pt-1 mt-1">
                          <span className="opacity-80 text-xs">Tempo Processamento:</span>
                          <span className="font-mono font-bold text-xs">{currentReview.timeTaken || 0}s</span>
                      </div>
@@ -548,7 +540,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
                           "w-full aspect-[4/3] text-center font-bold rounded-md outline-none focus:ring-2 focus:ring-white transition-colors border",
                           (!valid)
                                ? "bg-red-900/70 text-red-100 border-red-500 focus:bg-red-800"
-                               : (conf < 95)
+                               : (conf < 90)
                                   ? "bg-yellow-900/70 text-yellow-200 border-yellow-500 focus:bg-yellow-800"
                                : "bg-emerald-900/30 text-emerald-100 border-emerald-500 hover:bg-emerald-800/80"
                         )}
