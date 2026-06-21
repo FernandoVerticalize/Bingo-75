@@ -4,6 +4,7 @@ import type { BingoRound, MasterCard } from '../types';
 import { useStore } from '../store';
 import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
+import jsQR from 'jsqr';
 import { extractBingoGrid, processBingoCardCells } from '../lib/ocrPipeline';
 import { syncCardToFirestore, uploadCardImage } from '../lib/sync';
 import { v4 as uuidv4 } from 'uuid';
@@ -93,6 +94,55 @@ export function CardScanner({ round }: { round: BingoRound }) {
         setProgress({ current: i + 1, total: base64Images.length });
         
         const startTime = performance.now();
+        
+        // 1. Try to read QR Code first
+        setProgressMsg(`Cartela ${i + 1}: Procurando QR Code...`);
+        let qrProcessed = false;
+        try {
+            const img = new Image();
+            await new Promise((resolve) => {
+               img.onload = resolve;
+               img.src = base64Image;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                
+                if (code && code.data.startsWith('BINGO:')) {
+                    const jsonStr = code.data.replace('BINGO:', '');
+                    try {
+                        const parsed = JSON.parse(jsonStr);
+                        if (parsed.arr && parsed.arr.length === 25) {
+                            results.push({
+                                image: base64Image,
+                                numbers: parsed.arr,
+                                confidences: Array(25).fill(100),
+                                cardNumber: parsed.num || "",
+                                name: `${masterCards.length + results.length + 1}ª CARTELA`,
+                                timeTaken: Math.round((performance.now() - startTime) / 1000),
+                                avgConfidence: 100,
+                                suspiciousCount: 0,
+                                autoCorrected: 0,
+                                userCorrections: 0
+                            });
+                            qrProcessed = true;
+                        }
+                    } catch (e) {
+                         console.error("Invalid QR JSON", e);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("QR Error", e);
+        }
+
+        if (qrProcessed) continue;
+
         try {
           setProgressMsg(`Cartela ${i + 1}: Preparando imagem...`);
           const cellsBase64 = await extractBingoGrid(base64Image);

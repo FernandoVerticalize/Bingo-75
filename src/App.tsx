@@ -26,6 +26,7 @@ import { cn } from './lib/utils';
 import { CallerBoard } from './components/CallerBoard';
 import { CardsGrid } from './components/CardsGrid';
 import { CardScanner } from './components/CardScanner';
+import { PrintCardsButton } from './components/GenerateCardsPDF';
 import { StatsPanel } from './components/StatsPanel';
 import { HistoryModal } from './components/HistoryModal';
 
@@ -552,6 +553,8 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  
+                  <PrintCardsButton />
 
                   <StoragePanel onLoaded={() => setActiveTab('BOARD')} />
                   <DiagnosticPanel />
