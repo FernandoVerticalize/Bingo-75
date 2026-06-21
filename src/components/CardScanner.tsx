@@ -23,6 +23,7 @@ type ReviewCard = {
   suspiciousCount?: number;
   autoCorrected?: number;
   userCorrections?: number;
+  reprocessCount?: number;
 };
 
 const isValidNumber = (num: number, idx: number) => {
@@ -148,7 +149,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
           const cellsBase64 = await extractBingoGrid(base64Image);
           
           setProgressMsg(`Cartela ${i + 1}: Analisando números...`);
-          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(
+          const { numbers, confidences, autoCorrectedCount, reprocessCount } = await processBingoCardCells(
             cellsBase64,
             (p) => {
                 setProgressMsg(`Cartela ${i + 1}: Analisando números... ${Math.round(p * 100)}%`);
@@ -178,7 +179,8 @@ export function CardScanner({ round }: { round: BingoRound }) {
             avgConfidence: avgConfidence,
             suspiciousCount: suspiciousCount,
             autoCorrected: autoCorrectedCount,
-            userCorrections: 0
+            userCorrections: 0,
+            reprocessCount: reprocessCount
           });
 
         } catch (err: any) {
@@ -472,6 +474,14 @@ export function CardScanner({ round }: { round: BingoRound }) {
                      <div className="flex justify-between">
                          <span className="opacity-80">Correções do Usuário:</span>
                          <span className="font-mono font-bold">{currentReview.userCorrections || 0}</span>
+                     </div>
+                     <div className="flex justify-between border-t border-current/20 pt-1 mt-1">
+                         <span className="opacity-80 text-xs">Reprocessamentos Internos:</span>
+                         <span className="font-mono font-bold text-xs">{currentReview.reprocessCount || 0}</span>
+                     </div>
+                     <div className="flex justify-between">
+                         <span className="opacity-80 text-xs">Precisão Estimada (Confiança):</span>
+                         <span className="font-mono font-bold text-xs">{Math.min(100, Math.round((currentReview.avgConfidence || 0) * 1.05))}%</span>
                      </div>
                      <div className="flex justify-between border-t border-current/20 pt-1 mt-1">
                          <span className="opacity-80 text-xs">Tempo Processamento:</span>

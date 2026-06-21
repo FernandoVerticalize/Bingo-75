@@ -80,19 +80,45 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
       try {
         const mat = cv.imread(img);
         
-        // 1. Grayscale
+        // 1. Convert to Grayscale
         const gray = new cv.Mat();
         cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
         
-        // 2. Blur
-        const blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+        // ETAPA 8: Quality Validation (Blur/Focus & Brightness)
+        const laplacian = new cv.Mat();
+        cv.Laplacian(gray, laplacian, cv.CV_64F);
+        const mean = new cv.Mat();
+        const stddev = new cv.Mat();
+        cv.meanStdDev(laplacian, mean, stddev);
+        const variance = stddev.data64F[0] * stddev.data64F[0];
         
-        // 3. Edge detection
+        cv.meanStdDev(gray, mean, stddev);
+        const brightness = mean.data64F[0];
+        
+        laplacian.delete(); mean.delete(); stddev.delete();
+        
+        // Thresholds based on general OpenCV practices
+        // If variance is too low, image is fundamentally blurry
+        // If brightness is too extremely low or high, it's bad lighting
+        if (variance < 20 || brightness < 20 || brightness > 240) {
+            mat.delete(); gray.delete();
+            reject(new Error("Imagem com qualidade insuficiente para leitura precisa. Ajuste o enquadramento ou a iluminação."));
+            return;
+        }
+        
+        // 2. Enhance Contrast (CLAHE or Equalize Hist)
+        const equalized = new cv.Mat();
+        cv.equalizeHist(gray, equalized);
+
+        // 3. Noise Reduction (Gaussian Blur)
+        const blurred = new cv.Mat();
+        cv.GaussianBlur(equalized, blurred, new cv.Size(5, 5), 0);
+        
+        // 4. Edge detection
         const edges = new cv.Mat();
         cv.Canny(blurred, edges, 75, 200, 3, false);
         
-        // 4. Find contours
+        // 5. Find contours for perspective correction
         const contours = new cv.MatVector();
         const hierarchy = new cv.Mat();
         cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -102,14 +128,19 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
         for (let i = 0; i < contours.size(); i++) {
           const cnt = contours.get(i);
           const area = cv.contourArea(cnt);
-          if (area > maxArea) {
+          // Look for large rectangles
+          if (area > (mat.cols * mat.rows * 0.1)) {
             const peri = cv.arcLength(cnt, true);
             const approx = new cv.Mat();
             cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
             if (approx.rows === 4) {
-              maxArea = area;
-              if (bestContour) bestContour.delete();
-              bestContour = approx;
+              if (area > maxArea) {
+                maxArea = area;
+                if (bestContour) bestContour.delete();
+                bestContour = approx;
+              } else {
+                approx.delete();
+              }
             } else {
               approx.delete();
             }
@@ -155,15 +186,28 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
           
           const M = cv.getPerspectiveTransform(srcTri, dstTri);
           const warped = new cv.Mat();
-          cv.warpPerspective(mat, warped, M, new cv.Size(width, height));
+          cv.warpPerspective(gray, warped, M, new cv.Size(width, height));
           targetMat = warped;
           
           srcTri.delete(); dstTri.delete(); M.delete(); bestContour.delete();
+        } else {
+            targetMat = gray.clone();
         }
         
-        const tw = targetMat.cols;
-        const th = targetMat.rows;
+        // 6. Deskew & Sharpen targetMat
+        const sharpMat = new cv.Mat();
+        const kernel = cv.matFromArray(3, 3, cv.CV_32F, [
+           0, -1,  0,
+          -1,  5, -1,
+           0, -1,  0
+        ]);
+        cv.filter2D(targetMat, sharpMat, cv.CV_8U, kernel);
+        kernel.delete();
+
+        const tw = sharpMat.cols;
+        const th = sharpMat.rows;
         
+        // Assume grid might be in the bottom part (if header is present) or full
         const gridYOffset = th > tw ? th - tw : 0; 
         const gridHeight = th > tw ? tw : th;
         
@@ -180,40 +224,46 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
             const x = col * cellW;
             const y = gridYOffset + row * cellH;
             
-            const marginX = cellW * 0.1;
-            const marginY = cellH * 0.1;
+            // Tighten margin to avoid lines (increased margin)
+            const marginX = cellW * 0.15;
+            const marginY = cellH * 0.15;
             const finalX = Math.min(Math.max(x + marginX, 0), tw - 1);
             const finalY = Math.min(Math.max(y + marginY, 0), th - 1);
             const finalW = Math.max(cellW - marginX * 2, 1);
             const finalH = Math.max(cellH - marginY * 2, 1);
             
-            const cellMat = targetMat.roi(new cv.Rect(finalX, finalY, finalW, finalH));
+            const cellMat = sharpMat.roi(new cv.Rect(finalX, finalY, finalW, finalH));
             
-            const grayCell = new cv.Mat();
-            cv.cvtColor(cellMat, grayCell, cv.COLOR_RGBA2GRAY);
+            // 7. Binarization (Adaptive Thresholding) explicitly on each cell for best local contrast
             const bwCell = new cv.Mat();
-            cv.adaptiveThreshold(grayCell, bwCell, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+            cv.adaptiveThreshold(cellMat, bwCell, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 5);
             
-            cv.imshow(canvas, bwCell);
-            cellsBase64.push(canvas.toDataURL('image/jpeg'));
+            // Add a small padding of white to help Tesseract
+            const paddedCell = new cv.Mat();
+            cv.copyMakeBorder(bwCell, paddedCell, 10, 10, 10, 10, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+
+            canvas.width = paddedCell.cols;
+            canvas.height = paddedCell.rows;
+            cv.imshow(canvas, paddedCell);
+            cellsBase64.push(canvas.toDataURL('image/jpeg', 1.0)); // Max quality
             
             cellMat.delete();
-            grayCell.delete();
             bwCell.delete();
+            paddedCell.delete();
           }
         }
         
-        mat.delete(); gray.delete(); blurred.delete(); edges.delete(); hierarchy.delete(); contours.delete();
-        if (targetMat !== mat) targetMat.delete();
+        mat.delete(); gray.delete(); equalized.delete(); blurred.delete(); edges.delete(); hierarchy.delete(); contours.delete(); sharpMat.delete();
+        if (targetMat !== mat && targetMat !== gray) targetMat.delete();
         
         resolve(cellsBase64);
         
       } catch (err) {
         console.error("OpenCV processing failed", err);
-        reject();
+        reject(new Error("Falha ao processar a imagem. Erro no OpenCV."));
       }
     };
-    img.onerror = reject;
+    img.onerror = () => reject(new Error("Erro ao carregar a imagem."));
     img.src = imageSrc;
   });
 };
@@ -238,10 +288,16 @@ export const runOCRPass = async (worker: Tesseract.Worker, imageBase64: string, 
 export const processBingoCardCells = async (
   cellsBase64: string[], 
   onProgress?: (progress: number) => void
-): Promise<{ numbers: number[], confidences: number[], autoCorrectedCount: number }> => {
+): Promise<{ 
+  numbers: number[], 
+  confidences: number[], 
+  autoCorrectedCount: number,
+  reprocessCount: number 
+}> => {
   const numbers: number[] = new Array(25).fill(0);
   const confidences: number[] = new Array(25).fill(0);
   let autoCorrectedCount = 0;
+  let reprocessCount = 0;
   
   const worker1 = await Tesseract.createWorker('eng', 1);
   const worker2 = await Tesseract.createWorker('eng', 1);
@@ -249,8 +305,8 @@ export const processBingoCardCells = async (
   for (let i = 0; i < 25; i++) {
     const colIndex = i % 5;
     
-    const res1 = await runOCRPass(worker1, cellsBase64[i], 8); 
-    const res2 = await runOCRPass(worker2, cellsBase64[i], 7); 
+    let res1 = await runOCRPass(worker1, cellsBase64[i], 8); 
+    let res2 = await runOCRPass(worker2, cellsBase64[i], 7); 
     
     let bestRes = res1.confidence > res2.confidence ? res1 : res2;
     
@@ -259,6 +315,24 @@ export const processBingoCardCells = async (
         confidences[i] = 100;
         if (onProgress) onProgress((i + 1) / 25);
         continue;
+    }
+
+    // ETAPA 6: Validar limites
+    // ETAPA 7: Sistema de confiança (reprocessar se < 90%)
+    if (!isValidForColumn(bestRes.value, colIndex, i) || bestRes.confidence < 90) {
+      reprocessCount++;
+      // Executar nova leitura com PSM 6 (single block) ou PSM 10 (single char)
+      const res3 = await runOCRPass(worker1, cellsBase64[i], 6);
+      const res4 = await runOCRPass(worker2, cellsBase64[i], 10);
+      
+      const candidates = [bestRes, res3, res4].filter(r => isValidForColumn(r.value, colIndex, i));
+      if (candidates.length > 0) {
+          bestRes = candidates.reduce((prev, curr) => prev.confidence > curr.confidence ? prev : curr);
+      } else {
+          // Fallback if none are valid
+          const allTry = [bestRes, res3, res4];
+          bestRes = allTry.reduce((prev, curr) => prev.confidence > curr.confidence ? prev : curr);
+      }
     }
 
     if (!isValidForColumn(bestRes.value, colIndex, i)) {
@@ -282,6 +356,6 @@ export const processBingoCardCells = async (
   await worker1.terminate();
   await worker2.terminate();
   
-  return { numbers, confidences, autoCorrectedCount };
+  return { numbers, confidences, autoCorrectedCount, reprocessCount };
 };
 
