@@ -306,7 +306,7 @@ export default function App() {
                       maxHeight: '100%'
                    }}
                 >
-                  <CallerBoard round={activeRound} />
+                  <CallerBoard round={activeRound} isUserResized={typeof callerHeight === 'number'} />
                   
                   {/* Resize Handle - Horizontal (Left edge) */}
                   <div 
@@ -441,7 +441,7 @@ export default function App() {
                            <X size={20} />
                          </button>
                       </div>
-                      <CallerBoard round={activeRound} />
+                      <CallerBoard round={activeRound} isUserResized={typeof callerHeight === 'number'} />
                     </div>
                   </div>
                 )}

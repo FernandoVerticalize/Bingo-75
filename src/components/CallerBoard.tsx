@@ -4,7 +4,7 @@ import { cn } from '../lib/utils';
 import type { BingoRound } from '../types';
 import { Search, Monitor } from 'lucide-react';
 
-export function CallerBoard({ round }: { round: BingoRound }) {
+export function CallerBoard({ round, isUserResized = false }: { round: BingoRound, isUserResized?: boolean }) {
   const { toggleDrawnNumber } = useStore();
   const drawnSet = new Set(round.drawnNumbers);
   const lastDrawnNumber = round.drawnNumbers[round.drawnNumbers.length - 1];
@@ -45,10 +45,15 @@ export function CallerBoard({ round }: { round: BingoRound }) {
   let cellWidth = fixedCellWidth;
   let cellHeight = fixedCellWidth;
 
+  let actualGridHeight = containerHeight;
+  if (!isUserResized && containerHeight > 0) {
+     actualGridHeight = containerHeight * 1.6;
+  }
+
   if (containerHeight > 0 && containerWidth > 0) {
      // Fully elastic stretch-to-fit calculation
      cellWidth = (containerWidth - 6) / 5; // Account for borders and gaps
-     cellHeight = (containerHeight - 17) / 16;
+     cellHeight = (actualGridHeight - 17) / 16;
   }
 
   const tableWidth = (cellWidth * 5) + 4; // 5 cols + 4 gaps
@@ -98,10 +103,13 @@ export function CallerBoard({ round }: { round: BingoRound }) {
          className="flex-1 overflow-auto bg-[#121826] flex justify-stretch items-stretch" 
          ref={containerRef}
       >
-         <div 
-            className="grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700 w-full h-full"
-            style={{ gridTemplateRows: 'repeat(16, minmax(0, 1fr))' }}
-         >
+          <div 
+             className="grid grid-cols-5 gap-px bg-slate-700 shrink-0 border-slate-700 w-full"
+             style={{ 
+                 gridTemplateRows: 'repeat(16, minmax(0, 1fr))',
+                 height: isUserResized ? '100%' : '160%'
+             }}
+          >
              {/* Header row */}
             {columns.map(col => (
                <div 
