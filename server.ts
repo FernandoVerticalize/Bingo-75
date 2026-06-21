@@ -40,399 +40,126 @@ async function startServer() {
         },
       };
 
-      const systemInstruction = `Você é o motor central de validação e interpretação de cartelas de bingo de um sistema automatizado.
+      const systemInstruction = `SISTEMA ESPECIALIZADO DE LEITURA, VALIDAÇÃO E ORGANIZAÇÃO DE CARTELAS DE BINGO 75
+
+MISSÃO PRINCIPAL
+Você é um sistema especializado exclusivamente na leitura, validação e organização de números presentes em cartelas de Bingo 75.
+Sua função NÃO é reconhecer imagens, detectar bordas, localizar cartelas ou executar visão computacional.
+Essas etapas já foram realizadas previamente pelo sistema.
+Sua única responsabilidade é interpretar corretamente os conteúdos encontrados em cada célula da cartela e organizar os resultados sem alterar nenhuma informação identificada.
+A precisão absoluta possui prioridade máxima. A velocidade de resposta é irrelevante.
+
+REGRA FUNDAMENTAL
+A imagem é a única fonte de verdade.
+Você deve registrar exclusivamente aquilo que estiver efetivamente visível.
+Nunca utilize: Inferência; Suposição; Probabilidade; Estatística; Correção automática; Preenchimento automático; Reconstrução de números; Adivinhação.
+Se um valor não puder ser confirmado visualmente, ele não deve ser informado.
+
+PROCESSAMENTO DE APENAS UMA CARTELA
+A análise deve considerar apenas uma única cartela. Caso existam múltiplas cartelas visíveis: Utilizar exclusivamente a cartela principal. Ignorar completamente todas as demais.
+
+ESTRUTURA DA CARTELA
+A cartela possui 5 colunas e 5 linhas (25 posições).
+Ordem das colunas: B | I | N | G | O
+Cada posição da grade representa uma célula independente.
+
+LEITURA INDEPENDENTE DAS CÉLULAS
+Cada célula deve ser analisada individualmente. A leitura deve ocorrer isoladamente. O conteúdo de uma posição nunca pode influenciar a leitura de outra.
+
+EXTRAÇÃO DOS VALORES
+Registrar exatamente o conteúdo identificado.
+Se houver texto: Registrar exatamente o texto encontrado.
+Se houver símbolo: Registrar exatamente o símbolo encontrado.
+Se houver espaço vazio: Registrar como vazio (null).
+
+NÚMEROS AMBÍGUOS
+Os seguintes pares exigem atenção especial: 0 ↔ 8, 1 ↔ 7, 2 ↔ 7, 3 ↔ 8, 5 ↔ 6, 6 ↔ 8, 6 ↔ 9.
+Se existir qualquer dúvida visual, registrar com status "ambiguidade_detectada".
+
+NÚMEROS PARCIAIS
+Caso apenas parte do número esteja visível, registrar com status "ilegivel".
+
+VALIDAÇÃO DAS COLUNAS
+Utilizar apenas para auditoria. Nunca utilizar para corrigir resultados. Faixas tradicionais: B=1-15, I=16-30, N=31-45, G=46-60, O=61-75.
+Se fora da faixa, registrar o que viu e usar campos extras se quiser, mas o valor real lido deve ser o que foi lido.
+
+POSIÇÃO CENTRAL
+A posição central deve ser tratada exatamente como qualquer outra célula. Nunca assumir automaticamente que seja FREE.
+
+DUPLA VERIFICAÇÃO OBRIGATÓRIA
+Após concluir toda a leitura: Executar uma segunda conferência independente.
 
-IMPORTANTE:
-
-Você NÃO é o OCR principal.
-
-A leitura visual da imagem já foi realizada anteriormente por OpenCV e PaddleOCR.
-
-Você receberá dados extraídos da imagem, incluindo:
-
-- números identificados
-- posições dos números
-- coordenadas
-- confiança do OCR
-- estrutura parcial da grade
-- texto bruto extraído
-
-Sua responsabilidade é transformar esses dados em uma cartela de bingo válida, consistente e confiável.
-
-==================================================
-OBJETIVO
-==================================================
-
-Identificar, validar, corrigir e estruturar os números de uma ou mais cartelas de bingo encontradas.
-
-Prioridade absoluta:
-
-1. Precisão
-2. Consistência
-3. Integridade dos dados
-
-Nunca priorize velocidade sobre precisão.
-
-==================================================
-DADOS RECEBIDOS
-==================================================
-
-Os dados podem conter:
-
-- números corretos
-- números duplicados
-- números faltando
-- números incorretos
-- caracteres inválidos
-- erros de OCR
-- símbolos indevidos
-- ruídos de reconhecimento
-
-Você deve analisar todas as informações disponíveis antes de decidir qualquer correção.
-
-==================================================
-CONHECIMENTO DA ESTRUTURA BINGO
-==================================================
-
-Considere como padrão principal:
-
-B = 1 a 15
-I = 16 a 30
-N = 31 a 45
-G = 46 a 60
-O = 61 a 75
-
-As letras:
-
-B
-I
-N
-G
-O
-
-devem permanecer EXATAMENTE assim.
-
-Nunca traduzir.
-
-Nunca converter.
-
-Nunca alterar para qualquer idioma.
-
-Mesmo que o idioma do usuário seja português, espanhol, francês, alemão ou qualquer outro.
-
-Sempre manter:
-
-B I N G O
-
-==================================================
-VALIDAÇÃO DE FAIXAS
-==================================================
-
-Verifique se os números pertencem às faixas corretas.
-
-Exemplos:
-
-B:
-1-15
-
-I:
-16-30
-
-N:
-31-45
-
-G:
-46-60
-
-O:
-61-75
-
-Se um número estiver fora da faixa:
-
-72 em B
-65 em I
-9 em O
-58 em N
-
-considere suspeita de erro OCR.
-
-==================================================
-ERROS COMUNS DE OCR
-==================================================
-
-Considere confusões frequentes:
-
-0 ↔ 8
-
-1 ↔ 7
-
-2 ↔ 7
-
-3 ↔ 8
-
-5 ↔ 6
-
-6 ↔ 8
-
-8 ↔ 9
-
-4 ↔ 9
-
-11 ↔ 77
-
-12 ↔ 72
-
-15 ↔ 75
-
-17 ↔ 71
-
-21 ↔ 27
-
-31 ↔ 81
-
-44 ↔ 11
-
-60 ↔ 80
-
-68 ↔ 88
-
-69 ↔ 89
-
-Somente corrigir quando houver forte evidência.
-
-==================================================
-REGRAS DE CORREÇÃO
-==================================================
-
-Uma correção só pode ser aplicada quando:
-
-- a faixa da coluna estiver incorreta
-- a confiança OCR estiver baixa
-- existir alternativa plausível
-- houver consistência visual
-
-Caso contrário:
-
-manter o valor original.
-
-Nunca inventar números.
-
-Nunca criar números sem evidência.
-
-Nunca preencher células vazias.
-
-==================================================
-ANÁLISE DE CONFIANÇA
-==================================================
-
-Classifique cada valor:
-
-1.00
-Leitura extremamente confiável
-
-0.95
-Muito confiável
-
-0.90
-Confiável
-
-0.80
-Pequena incerteza
-
-0.70
-Dúvida moderada
-
-0.60
-Baixa confiança
-
-Nunca utilizar valores inferiores a 0.60.
-
-==================================================
-VERIFICAÇÃO DUPLA
-==================================================
-
-Após concluir a validação:
-
-Execute uma segunda análise completa.
-
-Verifique:
-
-- números repetidos suspeitos
-- números fora da faixa
-- células inconsistentes
-- falhas de OCR
-- conflitos estruturais
-
-Se houver divergência entre a primeira e segunda análise:
-
-utilize a interpretação mais consistente.
-
-==================================================
-MÚLTIPLAS CARTELAS
-==================================================
-
-A imagem pode conter:
-
-- 1 cartela
-- várias cartelas
-
-Você deve processar todas.
-
-Cada cartela deve possuir:
-
-card_index próprio.
-
-==================================================
-TRATAMENTO DE DADOS INVÁLIDOS
-==================================================
-
-Ignorar completamente:
-
-- logotipos
-- propagandas
-- marcas d'água
-- QR Codes
-- códigos de barras
-- títulos
-- cabeçalhos decorativos
-- textos promocionais
-- nomes de empresas
-- rodapés
-- elementos gráficos
-
-Considerar apenas números pertencentes à cartela.
-
-==================================================
-SAÍDA
-==================================================
-
-Retornar SOMENTE JSON válido.
-
-NÃO escrever explicações.
-
-NÃO escrever comentários.
-
-NÃO escrever markdown.
-
-NÃO escrever texto adicional.
-
-NÃO utilizar blocos de código.
-
-==================================================
-FORMATO OBRIGATÓRIO
-==================================================
-
-{
-  "success": true,
-  "cards_found": 1,
-  "cards": [
-    {
-      "card_index": 1,
-      "validation_status": "valid",
-      "average_confidence": 0.96,
-      "corrections_made": [],
-      "grid": {
-        "B": [1,12,7,15,4],
-        "I": [18,25,21,17,29],
-        "N": [33,38,null,44,41],
-        "G": [49,57,54,46,60],
-        "O": [65,71,73,62,75]
-      }
-    }
-  ]
-}
-
-==================================================
-SE EXISTIREM CORREÇÕES
-==================================================
-
-{
-  "original": 72,
-  "corrected": 12,
-  "reason": "Número incompatível com faixa da coluna B"
-}
-
-==================================================
-SE NENHUMA CARTELA FOR IDENTIFICADA
-==================================================
-
-{
-  "success": false,
-  "cards_found": 0,
-  "cards": [],
-  "error": "Nenhuma cartela de bingo válida encontrada"
-}
-
-==================================================
 REGRAS ABSOLUTAS
-==================================================
+NUNCA inventar números. NUNCA corrigir automaticamente. NUNCA utilizar probabilidades. SEMPRE reproduzir exatamente aquilo que foi identificado visualmente.
 
-- Nunca inventar números.
-- Nunca completar valores ausentes sem evidência.
-- Nunca gerar texto livre.
-- Nunca responder em markdown.
-- Nunca responder HTML.
-- Nunca responder código.
-- Nunca traduzir BINGO.
-- Sempre manter B I N G O.
-- Sempre validar duas vezes.
-- Sempre priorizar precisão máxima.
-- Sempre retornar JSON válido.
-- Sempre processar todas as cartelas encontradas.
-- Sempre utilizar as regras de bingo para validação.
-- Sempre registrar correções efetuadas.
-- Se houver dúvida razoável, preservar o valor original ao invés de inventar uma correção.`;
+FORMATO DE SAÍDA OBRIGATÓRIO:
+Retornar EXCLUSIVAMENTE um JSON válido.
+Exemplo:
+{
+  "tipo": "BINGO_75",
+  "confianca_geral": 99.8,
+  "status": "validado",
+  "cartela": {
+    "B": [5, 8, 12, 14, 15],
+    "I": [16, 18, 22, 27, 30],
+    "N": [31, 35, 42, 44, 45],
+    "G": [47, 50, 53, 58, 60],
+    "O": [62, 65, 69, 72, 75]
+  }
+}`;
+
+      // Gemini needs all images (the 25 cells). We add explicit position labels so it can analyze them independently.
+      const contents: any[] = [];
+      const cols = ['B', 'I', 'N', 'G', 'O'];
+      if (images.length === 25) {
+          for (let i = 0; i < 25; i++) {
+              const r = Math.floor(i / 5);
+              const c = i % 5;
+              contents.push({ text: `Célula ${cols[c]}${r + 1}:` });
+              contents.push({
+                  inlineData: {
+                      mimeType: "image/jpeg",
+                      data: images[i].replace(/^data:image\/\w+;base64,/, ""),
+                  }
+              });
+          }
+      } else {
+          // Fallback if not exactly 25
+          for (const base64 of images) {
+              contents.push({
+                  inlineData: {
+                      mimeType: "image/jpeg",
+                      data: base64.replace(/^data:image\/\w+;base64,/, ""),
+                  }
+              });
+          }
+      }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: [imagePart],
+        model: "gemini-2.5-flash",
+        contents: contents,
         config: {
           systemInstruction,
           temperature: 0,
-          topP: 0.1,
-          topK: 1,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              success: { type: Type.BOOLEAN },
-              cards_found: { type: Type.INTEGER },
-              error: { type: Type.STRING },
-              cards: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    card_index: { type: Type.INTEGER },
-                    validation_status: { type: Type.STRING },
-                    average_confidence: { type: Type.NUMBER },
-                    corrections_made: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          original: { type: Type.INTEGER },
-                          corrected: { type: Type.INTEGER },
-                          reason: { type: Type.STRING }
-                        }
-                      }
-                    },
-                    grid: {
-                      type: Type.OBJECT,
-                      properties: {
-                        B: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
-                        I: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
-                        N: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
-                        G: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
-                        O: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } }
-                      }
-                    }
-                  },
-                  required: ["card_index", "grid"]
+              tipo: { type: Type.STRING },
+              confianca_geral: { type: Type.NUMBER },
+              status: { type: Type.STRING },
+              cartela: {
+                type: Type.OBJECT,
+                properties: {
+                  B: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
+                  I: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
+                  N: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
+                  G: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } },
+                  O: { type: Type.ARRAY, items: { type: Type.INTEGER, nullable: true } }
                 }
               }
             },
-            required: ["success", "cards_found", "cards"]
+            required: ["tipo", "confianca_geral", "status", "cartela"]
           }
         }
       });

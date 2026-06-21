@@ -1,5 +1,4 @@
 import cv from '@techstark/opencv-js';
-import Tesseract from 'tesseract.js';
 
 let isCvReady = false;
 cv.onRuntimeInitialized = () => {
@@ -219,70 +218,57 @@ export const extractBingoGrid = async (imageSrc: string): Promise<string[]> => {
   });
 };
 
-export const runOCRPass = async (worker: Tesseract.Worker, imageBase64: string, psm: number = 8): Promise<OCRCellResult> => {
-  await worker.setParameters({
-    tessedit_char_whitelist: '0123456789',
-    tessedit_pageseg_mode: psm as any, 
-  });
-  
-  const result = await worker.recognize(imageBase64);
-  const text = result.data.text.trim().replace(/\D/g, '');
-  let conf = result.data.confidence;
-  
-  if (!text) {
-     return { value: 0, confidence: 0, row: 0, col: 0 };
-  }
-  
-  return { value: parseInt(text, 10), confidence: conf, row: 0, col: 0 };
-};
+// Tesseract has been entirely removed based on the instruction to use Gemini API.
 
 export const processBingoCardCells = async (
   cellsBase64: string[], 
   onProgress?: (progress: number) => void
 ): Promise<{ numbers: number[], confidences: number[], autoCorrectedCount: number }> => {
-  const numbers: number[] = new Array(25).fill(0);
-  const confidences: number[] = new Array(25).fill(0);
-  let autoCorrectedCount = 0;
-  
-  const worker1 = await Tesseract.createWorker('eng', 1);
-  const worker2 = await Tesseract.createWorker('eng', 1);
+  if (onProgress) onProgress(0.1);
 
-  for (let i = 0; i < 25; i++) {
-    const colIndex = i % 5;
-    
-    const res1 = await runOCRPass(worker1, cellsBase64[i], 8); 
-    const res2 = await runOCRPass(worker2, cellsBase64[i], 7); 
-    
-    let bestRes = res1.confidence > res2.confidence ? res1 : res2;
-    
-    if (i === 12 && (!bestRes.value || bestRes.value === 0)) {
-        numbers[i] = 0;
-        confidences[i] = 100;
-        if (onProgress) onProgress((i + 1) / 25);
-        continue;
-    }
+  // Instead of using Tesseract, we will use the highly precise Gemini 2.5 Flash endpoint
+  const response = await fetch('/api/scan-bingo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // Sending all 25 crops. Gemini will process them sequentially in the payload.
+    body: JSON.stringify({ images: cellsBase64 })
+  });
 
-    if (!isValidForColumn(bestRes.value, colIndex, i)) {
-      if (bestRes.value > 0) {
-        const corrected = findBestMatch(bestRes.value.toString(), colIndex);
-        bestRes.value = corrected;
-        bestRes.confidence = bestRes.confidence * 0.8;
-        autoCorrectedCount++;
-      } else if (i === 12) {
-        bestRes.value = 0;
-        bestRes.confidence = 100;
-      }
-    }
-    
-    numbers[i] = bestRes.value;
-    confidences[i] = bestRes.confidence;
-    
-    if (onProgress) onProgress((i + 1) / 25);
+  if (onProgress) onProgress(0.5);
+
+  if (!response.ok) {
+     throw new Error("Falha na validação com IA");
   }
+
+  const result = await response.json();
   
-  await worker1.terminate();
-  await worker2.terminate();
+  const numbers: number[] = new Array(25).fill(0);
+  const confidences: number[] = new Array(25).fill(100);
   
-  return { numbers, confidences, autoCorrectedCount };
+  if (result.cartela) {
+      // Map B I N G O back to 0-24
+      const cols = ['B', 'I', 'N', 'G', 'O'];
+      for (let c = 0; c < 5; c++) {
+          const letter = cols[c];
+          const colArr = result.cartela[letter] || [];
+          for (let r = 0; r < 5; r++) {
+              const idx = r * 5 + c;
+              numbers[idx] = colArr[r] || 0;
+              // If status was not validated, we can reduce confidence slightly, but user gets to review anyway.
+              if (result.status === "revisao_manual" || result.status === "ambiguidade_detectada") {
+                  confidences[idx] = 80;
+              } else if (result.confianca_geral) {
+                  confidences[idx] = result.confianca_geral;
+              }
+          }
+      }
+  }
+
+  // Enforce zero at center
+  numbers[12] = 0;
+
+  if (onProgress) onProgress(1.0);
+
+  return { numbers, confidences, autoCorrectedCount: 0 };
 };
 
