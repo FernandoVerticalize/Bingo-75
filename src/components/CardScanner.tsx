@@ -152,7 +152,15 @@ export function CardScanner({ round }: { round: BingoRound }) {
           });
 
           if (!response.ok) {
-            throw new Error(`Falha no servidor: ${response.status}`);
+            let responseText = "";
+            try {
+               responseText = await response.text();
+            } catch (e) {
+               responseText = "Não foi possível ler o corpo da resposta.";
+            }
+            const errorDetails = `OCR Request URL:\n${window.location.origin}/api/scan-card\n\nHTTP Status:\n${response.status}\n\nResponse:\n${responseText}`;
+            console.error(errorDetails);
+            throw new Error(`Falha no servidor: ${response.status}\n\n${errorDetails}`);
           }
 
           const result = await response.json();
