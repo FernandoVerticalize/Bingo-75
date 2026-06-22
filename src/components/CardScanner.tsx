@@ -53,7 +53,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const resizeImage = (dataUrl: string, maxWidth = 1600, maxHeight = 1600): Promise<string> => {
+  const resizeImage = (dataUrl: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -72,7 +72,7 @@ export function CardScanner({ round }: { round: BingoRound }) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
            ctx.drawImage(img, 0, 0, width, height);
-           resolve(canvas.toDataURL('image/jpeg', 0.8));
+           resolve(canvas.toDataURL('image/jpeg', 0.6));
         } else {
            resolve(dataUrl);
         }
