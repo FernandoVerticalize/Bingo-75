@@ -18,12 +18,36 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+app.get("/api/debug-ocr", (req, res) => {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  res.json({
+    geminiKeyLoaded: !!geminiKey,
+    keyLength: geminiKey ? geminiKey.length : 0,
+    environment: process.env.NODE_ENV || "development",
+    vercel: !!process.env.VERCEL,
+    apiReachable: true,
+  });
+});
+
 app.post("/api/scan-card", async (req, res) => {
+  console.log("=== OCR REQUEST STARTED ===");
+  console.log(`URL: ${req.url}`);
+  console.log(`Environment: ${process.env.NODE_ENV}, VERCEL: ${!!process.env.VERCEL}`);
+  console.log(`GEMINI_API_KEY present: ${!!process.env.GEMINI_API_KEY}`);
+
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY não encontrada em produção.");
+      return res.status(500).json({ error: "GEMINI_API_KEY não encontrada em produção." });
+    }
+
     const { image } = req.body;
     if (!image) {
+      console.error("Missing image in request body");
       return res.status(400).json({ error: "Missing image" });
     }
+
+    console.log(`Image received, payload size: ${image.length} bytes`);
 
     const imagePart = {
       inlineData: {
@@ -64,7 +88,10 @@ If a number is unreadable, make your best guess or use 0. Ensure no extra text o
         }
       });
     } catch (err: any) {
+      console.error("OCR ERROR during Gemini generateContent:", err);
+      console.error(err.stack);
       if (err.status === 503 || err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
+         console.log("Falling back due to 503 error");
          response = await ai.models.generateContent({
           model: "gemini-2.5-flash",
           contents: [imagePart],
@@ -88,9 +115,11 @@ If a number is unreadable, make your best guess or use 0. Ensure no extra text o
         throw new Error("Invalid number elements in generated JSON");
     }
 
+    console.log("=== OCR REQUEST COMPLETED SUCCESSFULLY ===");
     res.json(resultData);
   } catch (error: any) {
-    console.error(error);
+    console.error("OCR UNHANDLED ERROR:", error);
+    console.error(error.stack);
     res.status(500).json({ error: error.message || "Failed to process image with Gemini." });
   }
 });
