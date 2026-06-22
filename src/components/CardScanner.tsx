@@ -5,7 +5,6 @@ import { useStore } from '../store';
 import { Camera, CheckCircle2, RotateCcw, AlertTriangle, UploadCloud, Edit3, X, ImagePlus, ArrowRight, SkipForward, Copy, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
 import jsQR from 'jsqr';
-import { extractBingoGrid, processBingoCardCells } from '../lib/ocrPipeline';
 import { syncCardToFirestore, uploadCardImage } from '../lib/sync';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -144,16 +143,24 @@ export function CardScanner({ round }: { round: BingoRound }) {
         if (qrProcessed) continue;
 
         try {
-          setProgressMsg(`Cartela ${i + 1}: Preparando imagem...`);
-          const cellsBase64 = await extractBingoGrid(base64Image);
+          setProgressMsg(`Cartela ${i + 1}: Analisando números via Gemini...`);
           
-          setProgressMsg(`Cartela ${i + 1}: Analisando números...`);
-          const { numbers, confidences, autoCorrectedCount } = await processBingoCardCells(
-            cellsBase64,
-            (p) => {
-                setProgressMsg(`Cartela ${i + 1}: Analisando números... ${Math.round(p * 100)}%`);
-            }
-          );
+          const response = await fetch('/api/scan-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Image })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Falha no servidor: ${response.status}`);
+          }
+
+          const result = await response.json();
+          const numbers = result.numbers || Array(25).fill(0);
+          const cardNumber = result.cardNumber || "";
+          
+          const confidences = Array(25).fill(100);
+          const autoCorrectedCount = 0;
 
           const timeTakenSeconds = Math.round((performance.now() - startTime) / 1000);
 
@@ -162,17 +169,17 @@ export function CardScanner({ round }: { round: BingoRound }) {
           for (let j = 0; j < 25; j++) {
              sumConf += confidences[j];
              if (j === 12 && (!numbers[j] || numbers[j] === 0)) continue;
-             if (!isValidNumber(numbers[j], j) || confidences[j] < 90) {
+             if (!isValidNumber(numbers[j], j)) {
                suspiciousCount++;
              }
           }
-          const avgConfidence = Math.round(sumConf / 25);
+          const avgConfidence = 100;
 
           results.push({
             image: base64Image,
             numbers: numbers,
-            confidences: confidences.map(c => Math.round(c)),
-            cardNumber: "", 
+            confidences: confidences,
+            cardNumber: cardNumber, 
             name: `${masterCards.length + results.length + 1}ª CARTELA`,
             timeTaken: timeTakenSeconds,
             avgConfidence: avgConfidence,
