@@ -70,7 +70,7 @@ If a number is unreadable, make your best guess or use 0. Ensure no extra text o
       } catch (err: any) {
         if (err.status === 503 || err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
            response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-flash",
             contents: [imagePart],
             config: {
               systemInstruction,
